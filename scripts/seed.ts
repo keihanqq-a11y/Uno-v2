@@ -8,7 +8,13 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@uno.local" },
-    update: {},
+    update: {
+      passwordHash,
+      role: "ADMIN",
+      emailVerified: true,
+      isBanned: false,
+      banReason: null,
+    },
     create: {
       email: "admin@uno.local",
       username: "admin",
@@ -25,7 +31,12 @@ async function main() {
 
   const demo = await prisma.user.upsert({
     where: { email: "player@uno.local" },
-    update: {},
+    update: {
+      passwordHash,
+      emailVerified: true,
+      isBanned: false,
+      banReason: null,
+    },
     create: {
       email: "player@uno.local",
       username: "goldhand",
