@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { WalletBar } from "@/components/wallet/WalletBar";
 
 const links = [
   { href: "/play", label: "Play" },
@@ -20,8 +21,8 @@ export function AppNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-[#0A0A0A]/90 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/play" className="group flex items-baseline gap-2">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+        <Link href="/play" className="group flex shrink-0 items-baseline gap-2">
           <span className="font-display text-2xl tracking-[0.12em] text-gold transition-colors group-hover:text-[#e0c04a]">
             UNO
           </span>
@@ -54,11 +55,12 @@ export function AppNav() {
           )}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <WalletBar />
           {!loading && user && (
             <Link
               href={`/profile/${user.username}`}
-              className="flex items-center gap-2 text-sm text-muted hover:text-gold"
+              className="hidden items-center gap-2 text-sm text-muted hover:text-gold sm:flex"
             >
               <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-xs text-gold">
                 {user.avatarUrl ? (
@@ -68,7 +70,6 @@ export function AppNav() {
                   user.displayName.slice(0, 1).toUpperCase()
                 )}
               </span>
-              <span className="hidden sm:inline">{user.displayName}</span>
             </Link>
           )}
         </div>
