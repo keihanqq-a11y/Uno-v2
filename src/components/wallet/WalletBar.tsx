@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { WalletModal } from "@/components/wallet/WalletModal";
-import { getAsset } from "@/lib/wallet/assets";
+import { CryptoLogo } from "@/components/wallet/CryptoLogo";
+import { WALLET_ASSETS, getAsset, type WalletAssetId } from "@/lib/wallet/assets";
 
 export function WalletBar() {
   const [open, setOpen] = useState(false);
@@ -14,9 +15,7 @@ export function WalletBar() {
     LTC: 85,
     BTC: 95000,
   });
-  const [displayAsset, setDisplayAsset] = useState<"SOL" | "USDT" | "USDC" | "ETH" | "LTC" | "BTC">(
-    "SOL",
-  );
+  const [displayAsset, setDisplayAsset] = useState<WalletAssetId>("SOL");
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -44,20 +43,14 @@ export function WalletBar() {
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        {/* Balance chip */}
+      <div className="relative z-50 flex items-center gap-2">
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#171717] px-3 py-1.5 text-sm text-white hover:border-[#3a3a3a]"
+            className="flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#171717] px-2.5 py-1.5 text-sm text-white hover:border-[#3a3a3a] sm:px-3"
           >
-            <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold"
-              style={{ background: asset.color }}
-            >
-              {asset.symbol.slice(0, 1)}
-            </span>
+            <CryptoLogo id={asset.id} size={20} />
             <span className="font-semibold tabular-nums">
               $
               {price.toLocaleString(undefined, {
@@ -65,31 +58,25 @@ export function WalletBar() {
                 maximumFractionDigits: 2,
               })}
             </span>
-            <span className="text-[#888] text-xs">▾</span>
+            <span className="text-xs text-[#888]">▾</span>
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#171717] shadow-xl">
-              {(["SOL", "USDT", "USDC", "ETH", "LTC", "BTC"] as const).map((id) => {
-                const a = getAsset(id);
-                const p = rates[id] ?? 0;
+            <div className="absolute right-0 z-[60] mt-2 w-48 overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#171717] shadow-xl">
+              {WALLET_ASSETS.map((a) => {
+                const p = rates[a.id] ?? 0;
                 return (
                   <button
-                    key={id}
+                    key={a.id}
                     type="button"
                     onClick={() => {
-                      setDisplayAsset(id);
+                      setDisplayAsset(a.id);
                       setMenuOpen(false);
                     }}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-white/5"
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
                   >
                     <span className="flex items-center gap-2 text-white">
-                      <span
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold"
-                        style={{ background: a.color }}
-                      >
-                        {a.symbol.slice(0, 1)}
-                      </span>
+                      <CryptoLogo id={a.id} size={20} />
                       {a.symbol}
                     </span>
                     <span className="text-[#9a9a9a] tabular-nums">
@@ -102,14 +89,13 @@ export function WalletBar() {
           )}
         </div>
 
-        {/* Green Wallet button */}
         <button
           type="button"
           onClick={() => {
             setMenuOpen(false);
             setOpen(true);
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#22c55e] px-3.5 py-1.5 text-sm font-semibold text-black transition hover:bg-[#4ade80]"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#22c55e] px-3 py-1.5 text-sm font-semibold text-black transition hover:bg-[#4ade80] sm:px-3.5"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
@@ -120,7 +106,7 @@ export function WalletBar() {
             />
             <circle cx="17" cy="14" r="1.15" fill="currentColor" />
           </svg>
-          Wallet
+          <span>Wallet</span>
         </button>
       </div>
 
