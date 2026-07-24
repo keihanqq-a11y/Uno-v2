@@ -8,6 +8,7 @@ import { useSocket } from "@/hooks/useSocket";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { openWallet } from "@/components/wallet/WalletBar";
+import { UnoXLogo } from "@/components/brand/UnoXLogo";
 
 export default function PlayPage() {
   const { user, loading, error: authError, refresh } = useAuth();
@@ -147,12 +148,8 @@ export default function PlayPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <div className="mb-5 flex items-end gap-3 sm:gap-4">
-            <span className="text-lg text-[#ef4444]/70">♦</span>
-            <span className="text-lg text-white/45">♣</span>
-            <span className="animate-float text-3xl text-white">♠</span>
-            <span className="text-lg text-[#ef4444]/70">♥</span>
-            <span className="text-lg text-white/45">♦</span>
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <UnoXLogo size="hero" priority className="animate-float" />
           </div>
 
           <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">

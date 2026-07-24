@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { WalletBar } from "@/components/wallet/WalletBar";
+import { UnoXLogo } from "@/components/brand/UnoXLogo";
 
 const links = [
   { href: "/play", label: "Play" },
@@ -18,10 +19,8 @@ export function AppNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-        <Link href="/play" className="group flex shrink-0 items-center gap-2">
-          <span className="font-display text-2xl font-extrabold tracking-tight text-white transition group-hover:text-[#f87171]">
-            Uno<span className="text-[#ef4444]">X</span>
-          </span>
+        <Link href="/play" className="group flex shrink-0 items-center" aria-label="UnoX home">
+          <UnoXLogo size="nav" priority className="transition group-hover:brightness-110" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

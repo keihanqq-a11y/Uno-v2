@@ -20,6 +20,10 @@ const body = Manrope({
 export const metadata: Metadata = {
   title: "UnoX",
   description: "Host your own UNO lobbies — deposit to play",
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/brand/unox-icon.png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -10,6 +10,7 @@ import { WinnerOverlay } from "@/components/game/WinnerOverlay";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { UnoXLogo } from "@/components/brand/UnoXLogo";
 
 function playTone(kind: "uno" | "catch" | "play") {
   try {
@@ -173,9 +174,7 @@ export function GameTable({
         {/* Top bar */}
         <div className="relative z-20 flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="font-display text-lg font-bold tracking-tight text-white">
-              unox
-            </span>
+            <UnoXLogo size="sm" priority />
             <span className="text-[10px] uppercase tracking-[0.22em] text-muted">
               {game.direction === 1 ? "Clockwise" : "Counter-clockwise"}
             </span>
@@ -207,10 +206,8 @@ export function GameTable({
               <div className="pointer-events-none absolute inset-0 rounded-[50%] shadow-[inset_0_0_60px_rgba(0,0,0,0.85)]" />
 
               {/* Center: logo + deck + discard */}
-              <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
-                <p className="font-display text-4xl font-extrabold tracking-tight text-white/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-5xl animate-float">
-                  unox
-                </p>
+              <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-[58%] flex-col items-center gap-2 sm:gap-3">
+                <UnoXLogo size="table" className="animate-float pointer-events-none" />
 
                 <div className="flex items-end gap-5 sm:gap-8">
                   {/* Deck */}
