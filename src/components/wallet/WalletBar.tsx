@@ -1,103 +1,136 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { WalletModal } from "@/components/wallet/WalletModal";
 import { CryptoLogo } from "@/components/wallet/CryptoLogo";
 import { WALLET_ASSETS, getAsset, type WalletAssetId } from "@/lib/wallet/assets";
 
+type OpenTab = "Deposit" | "Withdraw" | "Tip" | "Buy Crypto";
+
+const DEMO_BALANCE_USD = 65239;
+
 export function WalletBar() {
   const [open, setOpen] = useState(false);
-  const [rates, setRates] = useState<Record<string, number>>({
-    SOL: 145,
-    USDT: 1,
-    USDC: 1,
-    ETH: 3200,
-    LTC: 85,
-    BTC: 95000,
-  });
-  const [displayAsset, setDisplayAsset] = useState<WalletAssetId>("SOL");
+  const [tab, setTab] = useState<OpenTab>("Deposit");
+  const [displayAsset, setDisplayAsset] = useState<WalletAssetId>("BTC");
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/wallet/rates");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (alive && data.rates) setRates(data.rates);
-      } catch {
-        /* keep fallback */
-      }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: OpenTab }>).detail;
+      setTab(detail?.tab ?? "Deposit");
+      setOpen(true);
+      setMenuOpen(false);
     };
-    void load();
-    const id = setInterval(load, 60_000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
+    window.addEventListener("uno:open-wallet", handler as EventListener);
+    return () => window.removeEventListener("uno:open-wallet", handler as EventListener);
   }, []);
 
   const asset = getAsset(displayAsset);
-  const price = rates[displayAsset] ?? 0;
+
+  const openWalletTab = (next: OpenTab) => {
+    setMenuOpen(false);
+    setTab(next);
+    setOpen(true);
+  };
 
   return (
     <>
-      <div className="relative z-50 flex items-center gap-2">
+      <div className="relative flex items-center gap-1.5 sm:gap-2">
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#171717] px-2.5 py-1.5 text-sm text-white hover:border-[#3a3a3a] sm:px-3"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#141414] py-1.5 pl-1.5 pr-2.5 text-sm text-white transition hover:border-white/20 sm:pr-3"
+            aria-expanded={menuOpen}
+            aria-haspopup="listbox"
           >
-            <CryptoLogo id={asset.id} size={20} />
-            <span className="font-semibold tabular-nums">
+            <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full bg-black/40 ring-1 ring-white/10">
+              <CryptoLogo id={asset.id} size={22} />
+            </span>
+            <span className="font-semibold tabular-nums tracking-tight">
               $
-              {price.toLocaleString(undefined, {
+              {DEMO_BALANCE_USD.toLocaleString("en-US", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </span>
-            <span className="text-xs text-[#888]">▾</span>
+            <motion.svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5 text-zinc-500"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              animate={{ rotate: menuOpen ? 180 : 0 }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </motion.svg>
           </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 z-[60] mt-2 w-48 overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#171717] shadow-xl">
-              {WALLET_ASSETS.map((a) => {
-                const p = rates[a.id] ?? 0;
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => {
-                      setDisplayAsset(a.id);
-                      setMenuOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/5"
-                  >
-                    <span className="flex items-center gap-2 text-white">
-                      <CryptoLogo id={a.id} size={20} />
-                      {a.symbol}
-                    </span>
-                    <span className="text-[#9a9a9a] tabular-nums">
-                      ${p.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <AnimatePresence>
+            {menuOpen ? (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-[90]"
+                  aria-label="Close currency menu"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <motion.div
+                  role="listbox"
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 z-[100] mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#121214] p-1.5 shadow-2xl"
+                >
+                  <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    Display currency
+                  </p>
+                  {WALLET_ASSETS.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      role="option"
+                      aria-selected={a.id === displayAsset}
+                      onClick={() => {
+                        setDisplayAsset(a.id);
+                        setMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        a.id === displayAsset
+                          ? "bg-[#1aef4d]/12 text-white"
+                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full ring-1 ring-white/10">
+                        <CryptoLogo id={a.id} size={22} />
+                      </span>
+                      <span className="flex-1 font-medium">{a.name}</span>
+                      <span className="text-xs font-semibold text-zinc-500">{a.symbol}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              </>
+            ) : null}
+          </AnimatePresence>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            setMenuOpen(false);
-            setOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#22c55e] px-3 py-1.5 text-sm font-semibold text-black transition hover:bg-[#4ade80] sm:px-3.5"
+          onClick={() => openWalletTab("Tip")}
+          className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-transparent px-2.5 py-1.5 text-sm font-semibold text-zinc-300 transition hover:border-[#1aef4d]/40 hover:bg-[#1aef4d]/10 hover:text-[#1aef4d] sm:inline-flex"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+          Tip
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openWalletTab("Deposit")}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#1aef4d] px-3 py-1.5 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98] sm:px-3.5"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
               d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18a1 1 0 0 1 1 1v1.5M3 7.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 1 3 7.5Z"
               stroke="currentColor"
@@ -110,7 +143,12 @@ export function WalletBar() {
         </button>
       </div>
 
-      <WalletModal open={open} onClose={() => setOpen(false)} rates={rates} />
+      <WalletModal open={open} onClose={() => setOpen(false)} initialTab={tab} />
     </>
   );
+}
+
+export function openWallet(tab: OpenTab = "Deposit") {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("uno:open-wallet", { detail: { tab } }));
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Panel } from "@/components/ui/Panel";
+import { openWallet } from "@/components/wallet/WalletBar";
 
 export default function PlayPage() {
   const { user, loading, error: authError, refresh } = useAuth();
@@ -159,6 +160,24 @@ export default function PlayPage() {
             disabled={!connected || startingBots}
           >
             {startingBots ? "Starting…" : "Start vs bots"}
+          </Button>
+        </div>
+      </Panel>
+
+      <Panel className="mt-6 overflow-hidden border-[#1aef4d]/25 bg-gradient-to-r from-[#1aef4d]/10 via-transparent to-transparent p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg text-[#1aef4d]">Tip a player</h2>
+            <p className="mt-1 text-sm text-muted">
+              Send chips to friends after a clutch win — opens in your wallet.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="shrink-0 bg-[#1aef4d] text-black hover:brightness-110"
+            onClick={() => openWallet("Tip")}
+          >
+            Open tip
           </Button>
         </div>
       </Panel>

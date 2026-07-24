@@ -60,16 +60,15 @@ export function AppNav() {
           {!loading && user && (
             <Link
               href={`/profile/${user.username}`}
-              className="hidden items-center gap-2 text-sm text-muted hover:text-gold sm:flex"
+              className="hidden h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-[#181818] text-xs font-semibold text-gold sm:flex"
+              title={user.displayName}
             >
-              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-xs text-gold">
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  user.displayName.slice(0, 1).toUpperCase()
-                )}
-              </span>
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                user.displayName.slice(0, 1).toUpperCase()
+              )}
             </Link>
           )}
         </div>
