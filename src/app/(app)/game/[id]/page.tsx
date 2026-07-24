@@ -18,7 +18,7 @@ export default function GamePage() {
   const [lobbyCode, setLobbyCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function GamePage() {
     };
   }, [socket, connected]);
 
-  if (loading || !user) return <div className="p-10 text-muted">Loading…</div>;
+  if (loading || !user) return <div className="p-10 text-muted">Starting guest session…</div>;
   if (!game) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted">

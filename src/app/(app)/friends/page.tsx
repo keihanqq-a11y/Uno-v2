@@ -35,7 +35,7 @@ export default function FriendsPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   useEffect(() => {

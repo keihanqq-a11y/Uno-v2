@@ -23,19 +23,27 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function ensureGuest(): Promise<User | null> {
+  const me = await fetch("/api/auth/me");
+  if (me.ok) {
+    const data = await me.json();
+    return data.user ?? null;
+  }
+
+  const guest = await fetch("/api/auth/guest", { method: "POST" });
+  if (!guest.ok) return null;
+  const data = await guest.json();
+  return data.user ?? null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
-      const res = await fetch("/api/auth/me");
-      if (!res.ok) {
-        setUser(null);
-        return;
-      }
-      const data = await res.json();
-      setUser(data.user);
+      const next = await ensureGuest();
+      setUser(next);
     } catch {
       setUser(null);
     } finally {
@@ -49,8 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
-    window.location.href = "/login";
+    // Immediately start a fresh guest session instead of forcing login
+    setLoading(true);
+    await refresh();
+    window.location.href = "/play";
   };
 
   return (

@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   if (loading || !user) return <div className="p-10 text-muted">Loading…</div>;

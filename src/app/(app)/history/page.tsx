@@ -21,7 +21,7 @@ export default function HistoryPage() {
   const [matches, setMatches] = useState<Match[]>([]);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   useEffect(() => {

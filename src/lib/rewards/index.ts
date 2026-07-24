@@ -16,6 +16,7 @@ export async function grantXp(userId: string, amount: number) {
   return prisma.user.update({
     where: { id: userId },
     data: { xp, level },
+    select: { id: true, xp: true, level: true },
   });
 }
 

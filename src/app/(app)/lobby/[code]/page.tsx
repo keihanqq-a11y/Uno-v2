@@ -20,7 +20,7 @@ export default function LobbyPage() {
   const [friends, setFriends] = useState<Array<{ user: { id: string; displayName: string } }>>([]);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function LobbyPage() {
       .catch(() => undefined);
   }, []);
 
-  if (loading || !user) return <div className="p-10 text-muted">Loading…</div>;
+  if (loading || !user) return <div className="p-10 text-muted">Starting guest session…</div>;
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">

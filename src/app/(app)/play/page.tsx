@@ -21,7 +21,7 @@ export default function PlayPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.refresh();
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function PlayPage() {
   };
 
   if (loading || !user) {
-    return <div className="p-10 text-muted">Loading…</div>;
+    return <div className="p-10 text-muted">Starting guest session…</div>;
   }
 
   return (

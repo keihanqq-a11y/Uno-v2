@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/Button";
 export default function HomePage() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Full-bleed visual plane */}
       <div
         className="absolute inset-0"
         style={{
@@ -20,7 +19,6 @@ export default function HomePage() {
         }}
       />
 
-      {/* Stylized card fan as dominant visual */}
       <div className="pointer-events-none absolute right-[-5%] top-1/2 hidden h-[420px] w-[520px] -translate-y-1/2 md:block">
         {[
           { rot: -28, color: "#c62828", label: "7" },
@@ -59,25 +57,20 @@ export default function HomePage() {
           className="animate-fade-up mt-4 max-w-xl font-display text-3xl font-semibold text-text sm:text-4xl"
           style={{ animationDelay: "100ms" }}
         >
-          Private tables. Public matchmaking. Server-true play.
+          Jump in. No account needed.
         </h1>
         <p
           className="animate-fade-up mt-4 max-w-md text-muted"
           style={{ animationDelay: "180ms" }}
         >
-          A refined multiplayer arena for classic UNO — from lobby to last card.
+          Create a lobby or join with a code — you start as a guest automatically.
         </p>
         <div
           className="animate-fade-up mt-10 flex flex-wrap gap-3"
           style={{ animationDelay: "260ms" }}
         >
-          <Link href="/register">
-            <Button size="lg">Enter the table</Button>
-          </Link>
-          <Link href="/login">
-            <Button size="lg" variant="secondary">
-              Sign in
-            </Button>
+          <Link href="/play">
+            <Button size="lg">Play now</Button>
           </Link>
         </div>
       </div>
