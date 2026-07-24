@@ -18,9 +18,9 @@ export function AppNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+      <div className="mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between gap-3 px-4">
         <Link href="/play" className="group flex shrink-0 items-center" aria-label="UnoX home">
-          <UnoXLogo size="nav" priority className="transition group-hover:brightness-110" />
+          <UnoXLogo size="nav" priority className="max-h-12 transition group-hover:brightness-110" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
