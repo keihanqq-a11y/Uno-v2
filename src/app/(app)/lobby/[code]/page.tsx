@@ -1,22 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useSocket } from "@/hooks/useSocket";
-import type { LobbyState, LobbyPlayer } from "@/types/game";
+import type { ChatMessagePayload, LobbyState, LobbyPlayer } from "@/types/game";
 import { Button } from "@/components/ui/Button";
 import { UnoXLogo } from "@/components/brand/UnoXLogo";
-import { cn } from "@/lib/utils";
-
-const SEAT_SLOTS: Array<{ top: string; left: string }> = [
-  { top: "12%", left: "50%" },
-  { top: "32%", left: "86%" },
-  { top: "68%", left: "82%" },
-  { top: "68%", left: "18%" },
-  { top: "32%", left: "14%" },
-];
+import {
+  EmptySeat,
+  OccupiedSeat,
+  seatSlot,
+} from "@/components/game/TableSeat";
 
 export default function LobbyPage() {
   const params = useParams<{ code: string }>();
@@ -27,6 +23,12 @@ export default function LobbyPage() {
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sitError, setSitError] = useState<string | null>(null);
+  const [chat, setChat] = useState<ChatMessagePayload[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [bubbles, setBubbles] = useState<
+    Record<string, { id: string; content: string; until: number }>
+  >({});
 
   useEffect(() => {
     if (!loading && !user) router.refresh();
@@ -43,6 +45,7 @@ export default function LobbyPage() {
         return;
       }
       setLobby(res.lobby);
+      setChat(res.lobby.chat?.filter((m) => !m.isSystem).slice(-20) ?? []);
     })();
   }, [connected, code, user, emit]);
 
@@ -52,18 +55,65 @@ export default function LobbyPage() {
     const onStarted = (payload: { gameId: string }) => {
       router.push(`/game/${payload.gameId}`);
     };
+    const onChat = (msg: ChatMessagePayload) => {
+      if (msg.isSystem) return;
+      setChat((c) => [...c.slice(-40), msg]);
+      if (msg.userId) {
+        setBubbles((b) => ({
+          ...b,
+          [msg.userId!]: {
+            id: msg.id,
+            content: msg.content,
+            until: Date.now() + 4500,
+          },
+        }));
+      }
+    };
     socket.on("lobby:state", onState);
     socket.on("game:started", onStarted);
+    socket.on("lobby:chat", onChat);
     return () => {
       socket.off("lobby:state", onState);
       socket.off("game:started", onStarted);
+      socket.off("lobby:chat", onChat);
     };
   }, [socket, router]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      setBubbles((b) => {
+        const next = { ...b };
+        let changed = false;
+        for (const [k, v] of Object.entries(next)) {
+          if (v.until <= now) {
+            delete next[k];
+            changed = true;
+          }
+        }
+        return changed ? next : b;
+      });
+    }, 400);
+    return () => clearInterval(id);
+  }, []);
+
+  const me = lobby && user ? lobby.players.find((p) => p.userId === user.id) : undefined;
+  const isHost = !!(lobby && user && lobby.hostId === user.id);
+  const seated = lobby?.players.filter((p) => p.seat != null) ?? [];
+  const humanSeated = seated.filter((p) => !p.isBot && !p.username.startsWith("bot_"));
+  const aloneAtTable = !!lobby && humanSeated.length <= 1 && lobby.status === "WAITING";
+  const readyCount = seated.filter((p) => p.ready).length;
+  const bySeat = new Map<number, LobbyPlayer>();
+  if (lobby) {
+    for (const p of lobby.players) {
+      if (p.seat != null) bySeat.set(p.seat, p);
+    }
+  }
 
   if (loading || !user) {
     return <div className="p-10 text-zinc-500">Starting guest session…</div>;
   }
-  if (error) {
+  if (error && !lobby) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-red-400">{error}</p>
@@ -76,15 +126,6 @@ export default function LobbyPage() {
   if (!lobby) {
     return <div className="p-10 text-zinc-500">Joining table…</div>;
   }
-
-  const me = lobby.players.find((p) => p.userId === user.id);
-  const isHost = lobby.hostId === user.id;
-  const humanPlayers = lobby.players.filter(
-    (p) => !p.isBot && !p.username.startsWith("bot_"),
-  );
-  const aloneAtTable = humanPlayers.length <= 1 && lobby.status === "WAITING";
-  const emptySeats = Math.max(0, lobby.maxPlayers - lobby.players.length);
-  const readyCount = lobby.players.filter((p) => p.ready).length;
 
   const cashout = async () => {
     await emit("lobby:leave", {});
@@ -101,13 +142,30 @@ export default function LobbyPage() {
     }
   };
 
+  const sit = async (seat: number) => {
+    const res = await emit<{ ok: boolean; error?: string }>("lobby:sit", { seat });
+    if (!res.ok) {
+      setError(null);
+      setSitError(res.error ?? "Could not sit");
+      setTimeout(() => setSitError(null), 2500);
+    }
+  };
+
+  const sendChat = async (e: FormEvent) => {
+    e.preventDefault();
+    const content = chatDraft.trim();
+    if (!content) return;
+    setChatDraft("");
+    await emit("lobby:chat", { content });
+  };
+
   return (
     <div className="lobby-stage relative min-h-[calc(100vh-4.25rem)] overflow-hidden">
       <div className="relative z-10 mx-auto flex max-w-5xl flex-col px-4 py-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-zinc-500">
-              Private table
+              Private table · ${lobby.stakeUsd.toFixed(2)} buy-in
             </p>
             <button
               type="button"
@@ -122,9 +180,11 @@ export default function LobbyPage() {
               </span>
             </button>
             <p className="mt-2 text-sm text-zinc-500">
-              {lobby.players.length}/{lobby.maxPlayers} seated
+              {seated.length}/{lobby.maxPlayers} seated
               {readyCount > 0 ? ` · ${readyCount} ready` : ""}
+              {!me?.seat && me ? " · click a seat to sit" : ""}
             </p>
+            {sitError && <p className="mt-1 text-sm text-red-400">{sitError}</p>}
           </div>
         </div>
 
@@ -147,52 +207,76 @@ export default function LobbyPage() {
         )}
 
         <div className="relative mx-auto mt-6 w-full max-w-3xl">
-          <div className="relative mx-auto aspect-[16/11] w-full min-h-[320px] max-h-[480px]">
+          <div className="relative mx-auto aspect-[16/11] w-full min-h-[360px] max-h-[520px]">
             <div className="unox-table absolute inset-[6%] overflow-hidden rounded-[50%]">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#161616_0%,#0c0c0c_55%,#070707_100%)]" />
               <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
                 <UnoXLogo size="table" className="opacity-90" />
                 <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-                  {emptySeats > 0 ? `Open seats · ${emptySeats}` : "Table full"}
+                  Click a seat to sit
                 </p>
               </div>
             </div>
 
-            {lobby.players.map((p, i) => {
-              const slot = SEAT_SLOTS[i % SEAT_SLOTS.length];
-              return (
-                <LobbySeat
-                  key={p.userId}
-                  player={p}
-                  isHost={p.userId === lobby.hostId}
-                  isMe={p.userId === user.id}
-                  style={{ top: slot.top, left: slot.left }}
-                  canRemove={isHost && (p.isBot || p.username.startsWith("bot_"))}
-                  onRemove={() => void emit("lobby:remove_bot", { botUserId: p.userId })}
-                />
-              );
-            })}
-
-            {Array.from({ length: emptySeats }).map((_, i) => {
-              const idx = lobby.players.length + i;
-              const slot = SEAT_SLOTS[idx % SEAT_SLOTS.length];
+            {Array.from({ length: lobby.maxPlayers }).map((_, seat) => {
+              const slot = seatSlot(seat, lobby.maxPlayers);
+              const player = bySeat.get(seat);
               return (
                 <div
-                  key={`empty-${i}`}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                  key={seat}
+                  className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
                   style={{ top: slot.top, left: slot.left }}
                 >
-                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-dashed border-white/15 bg-black/40 text-[10px] uppercase tracking-wider text-zinc-600">
-                    Open
-                  </div>
+                  {player ? (
+                    <OccupiedSeat
+                      displayName={player.displayName}
+                      avatarUrl={player.avatarUrl}
+                      buyInUsd={player.buyInUsd || lobby.stakeUsd}
+                      ready={player.ready}
+                      isMe={player.userId === user.id}
+                      isHost={player.userId === lobby.hostId}
+                      connected={player.connected}
+                      bubble={
+                        bubbles[player.userId]
+                          ? {
+                              id: bubbles[player.userId].id,
+                              content: bubbles[player.userId].content,
+                            }
+                          : null
+                      }
+                      onRemove={
+                        isHost && (player.isBot || player.username.startsWith("bot_"))
+                          ? () => void emit("lobby:remove_bot", { botUserId: player.userId })
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <EmptySeat onSit={() => void sit(seat)} label="Sit" />
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
+        <form
+          onSubmit={(e) => void sendChat(e)}
+          className="mx-auto mt-4 flex w-full max-w-md gap-2"
+        >
+          <input
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            maxLength={200}
+            placeholder="Say something…"
+            className="h-10 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-red-500/40"
+          />
+          <Button type="submit" size="sm" disabled={!chatDraft.trim()}>
+            Send
+          </Button>
+        </form>
+
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-          {me && !me.isBot && (
+          {me && !me.isBot && me.seat != null && (
             <Button
               size="lg"
               variant={me.ready ? "secondary" : "primary"}
@@ -202,7 +286,7 @@ export default function LobbyPage() {
               {me.ready ? "Ready ✓" : "Ready up"}
             </Button>
           )}
-          {isHost && lobby.players.length < lobby.maxPlayers && (
+          {isHost && seated.length < lobby.maxPlayers && (
             <Button
               size="lg"
               variant="secondary"
@@ -217,7 +301,7 @@ export default function LobbyPage() {
               size="lg"
               className="min-w-[140px] rounded-2xl"
               onClick={() => void emit("lobby:start", {})}
-              disabled={lobby.players.length < 2}
+              disabled={seated.length < 2}
             >
               Start match
             </Button>
@@ -240,69 +324,13 @@ export default function LobbyPage() {
             </Button>
           )}
         </div>
+
+        {chat.length > 0 && (
+          <p className="mt-3 text-center text-[10px] text-zinc-600">
+            Latest: {chat[chat.length - 1]?.username}: {chat[chat.length - 1]?.content}
+          </p>
+        )}
       </div>
     </div>
-  );
-}
-
-function LobbySeat({
-  player,
-  isHost,
-  isMe,
-  style,
-  canRemove,
-  onRemove,
-}: {
-  player: LobbyPlayer;
-  isHost: boolean;
-  isMe: boolean;
-  style: { top: string; left: string };
-  canRemove: boolean;
-  onRemove: () => void;
-}) {
-  const initial = player.displayName.slice(0, 1).toUpperCase();
-  const isBot = !!(player.isBot || player.username.startsWith("bot_"));
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-      style={style}
-    >
-      <div
-        className={cn(
-          "flex w-[108px] flex-col items-center gap-1.5 rounded-2xl border px-2.5 py-2 backdrop-blur-md",
-          player.ready
-            ? "border-emerald-500/40 bg-emerald-500/10"
-            : isMe
-              ? "border-red-500/35 bg-red-500/10"
-              : "border-white/10 bg-black/65",
-        )}
-      >
-        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-[#121212] text-sm font-semibold text-white">
-          {player.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={player.avatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            initial
-          )}
-        </div>
-        <p className="max-w-full truncate text-center text-xs text-white">{player.displayName}</p>
-        <p className="text-[9px] uppercase tracking-wider text-zinc-500">
-          {isHost ? "Host" : isBot ? "Bot" : isMe ? "You" : "Seated"}
-          {!player.ready && !isBot ? " · waiting" : ""}
-        </p>
-        {canRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-[10px] text-zinc-500 hover:text-red-400"
-          >
-            Remove
-          </button>
-        )}
-      </div>
-    </motion.div>
   );
 }

@@ -44,6 +44,7 @@ export const createLobbySchema = z.object({
   maxPlayers: z.number().int().min(2).max(5),
   mode: z.enum(["PRIVATE", "PUBLIC"]),
   allowSpectators: z.boolean().default(true),
+  stakeUsd: z.number().min(0).max(10000).optional(),
 });
 
 export const chatSchema = z.object({

@@ -128,7 +128,7 @@ async function persistGameResults(gameId: string) {
       playerCount: g.state.players.length,
       cardsLeft: p.hand.length,
       lobbyCode: lobby?.code ?? null,
-      stakeUsd: 0,
+      stakeUsd: lobby?.stakeUsd ?? 0,
     });
   }
 
@@ -189,6 +189,7 @@ export function initSocketServer(httpServer: HttpServer) {
       const maxPlayers = Math.min(5, Math.max(2, Number(payload?.maxPlayers ?? 4)));
       const mode = payload?.mode === "PUBLIC" ? "PUBLIC" : "PRIVATE";
       const allowSpectators = payload?.allowSpectators !== false;
+      const stakeUsd = Math.max(0, Number(payload?.stakeUsd ?? 1));
       const lobby = lobbies.createLobby({
         hostId: user.id,
         host: {
@@ -199,10 +200,13 @@ export function initSocketServer(httpServer: HttpServer) {
           ready: false,
           connected: true,
           isSpectator: false,
+          seat: 0,
+          buyInUsd: stakeUsd,
         },
         maxPlayers,
         mode,
         allowSpectators,
+        stakeUsd,
       });
       socket.data.lobbyId = lobby.id;
       socket.join(lobbyRoom(lobby.id));
@@ -213,6 +217,10 @@ export function initSocketServer(httpServer: HttpServer) {
     socket.on("lobby:join", (payload, cb) => {
       const code = String(payload?.code ?? "").toUpperCase();
       const asSpectator = !!payload?.asSpectator;
+      const preferredSeat =
+        payload?.seat != null && Number.isFinite(Number(payload.seat))
+          ? Number(payload.seat)
+          : undefined;
       const result = lobbies.joinLobby(
         code,
         {
@@ -223,8 +231,11 @@ export function initSocketServer(httpServer: HttpServer) {
           ready: false,
           connected: true,
           isSpectator: asSpectator,
+          seat: null,
+          buyInUsd: 0,
         },
         asSpectator,
+        preferredSeat != null ? { autoSeat: true, preferredSeat } : undefined,
       );
       if (!result.ok) return cb?.({ ok: false, error: result.error });
       socket.data.lobbyId = result.lobby.id;
@@ -237,6 +248,16 @@ export function initSocketServer(httpServer: HttpServer) {
       }
       cb?.({ ok: true, lobby: result.lobby });
       broadcastLobby(result.lobby.id);
+    });
+
+    socket.on("lobby:sit", (payload, cb) => {
+      const lobbyId = socket.data.lobbyId;
+      if (!lobbyId) return cb?.({ ok: false, error: "Not in a lobby" });
+      const seat = Number(payload?.seat);
+      const result = lobbies.sitAtSeat(lobbyId, user.id, seat);
+      if (!result.ok) return cb?.({ ok: false, error: result.error });
+      cb?.({ ok: true, lobby: result.lobby });
+      broadcastLobby(lobbyId);
     });
 
     socket.on("lobby:leave", (_payload, cb) => {
@@ -309,10 +330,13 @@ export function initSocketServer(httpServer: HttpServer) {
             ready: true,
             connected: true,
             isSpectator: false,
+            seat: 0,
+            buyInUsd: 1,
           },
           maxPlayers,
           mode: "PRIVATE",
           allowSpectators: false,
+          stakeUsd: 1,
         });
 
         for (let i = 0; i < botCount; i++) {
@@ -327,14 +351,17 @@ export function initSocketServer(httpServer: HttpServer) {
           }
         }
 
+        const seated = lobbies.seatedPlayers(fresh);
         const state = games.startGame({
           lobbyId: lobby.id,
           hostId: lobby.hostId,
-          players: fresh.players.map((p) => ({
+          players: seated.map((p) => ({
             userId: p.userId,
             username: p.username,
             displayName: p.displayName,
             avatarUrl: p.avatarUrl,
+            seat: p.seat ?? 0,
+            buyInUsd: p.buyInUsd,
           })),
           maxPlayers,
           onStateChange: async (s) => {
@@ -411,9 +438,10 @@ export function initSocketServer(httpServer: HttpServer) {
       const lobby = lobbies.getLobby(lobbyId);
       if (!lobby) return cb?.({ ok: false, error: "Lobby not found" });
       if (lobby.hostId !== user.id) return cb?.({ ok: false, error: "Only host can start" });
-      if (lobby.players.length < 2) return cb?.({ ok: false, error: "Need at least 2 players" });
+      const seated = lobbies.seatedPlayers(lobby);
+      if (seated.length < 2) return cb?.({ ok: false, error: "Need at least 2 seated players" });
 
-      for (const p of lobby.players) {
+      for (const p of seated) {
         if (p.isBot || p.username.startsWith("bot_")) {
           rememberBotFromUsername(p.userId, p.username);
         }
@@ -422,11 +450,13 @@ export function initSocketServer(httpServer: HttpServer) {
       const state = games.startGame({
         lobbyId: lobby.id,
         hostId: lobby.hostId,
-        players: lobby.players.map((p) => ({
+        players: seated.map((p) => ({
           userId: p.userId,
           username: p.username,
           displayName: p.displayName,
           avatarUrl: p.avatarUrl,
+          seat: p.seat ?? 0,
+          buyInUsd: p.buyInUsd,
         })),
         maxPlayers: lobby.maxPlayers,
         onStateChange: async (s) => {
@@ -494,22 +524,32 @@ export function initSocketServer(httpServer: HttpServer) {
             ready: true,
             connected: true,
             isSpectator: false,
+            seat: 0,
+            buyInUsd: 1,
           },
           maxPlayers: size,
           mode: "PUBLIC",
           allowSpectators: true,
+          stakeUsd: 1,
         });
 
         for (const p of matched.slice(1)) {
-          lobbies.joinLobby(lobby.code, {
-            userId: p.userId,
-            username: p.username,
-            displayName: p.displayName,
-            avatarUrl: p.avatarUrl,
-            ready: true,
-            connected: true,
-            isSpectator: false,
-          });
+          lobbies.joinLobby(
+            lobby.code,
+            {
+              userId: p.userId,
+              username: p.username,
+              displayName: p.displayName,
+              avatarUrl: p.avatarUrl,
+              ready: true,
+              connected: true,
+              isSpectator: false,
+              seat: null,
+              buyInUsd: 0,
+            },
+            false,
+            { autoSeat: true },
+          );
         }
 
         for (const p of matched) {

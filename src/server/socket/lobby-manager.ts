@@ -14,16 +14,48 @@ export function getLobbyByCode(code: string): LobbyState | undefined {
   return id ? lobbies.get(id) : undefined;
 }
 
+function takenSeats(lobby: LobbyState): Set<number> {
+  return new Set(
+    lobby.players
+      .map((p) => p.seat)
+      .filter((s): s is number => typeof s === "number" && s >= 0),
+  );
+}
+
+export function nextFreeSeat(lobby: LobbyState): number | null {
+  const taken = takenSeats(lobby);
+  for (let i = 0; i < lobby.maxPlayers; i++) {
+    if (!taken.has(i)) return i;
+  }
+  return null;
+}
+
+export function seatedPlayers(lobby: LobbyState): LobbyPlayer[] {
+  return lobby.players
+    .filter((p) => p.seat != null)
+    .sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0));
+}
+
 export function createLobby(params: {
   hostId: string;
   host: LobbyPlayer;
   maxPlayers: number;
   mode: "PRIVATE" | "PUBLIC";
   allowSpectators: boolean;
+  stakeUsd?: number;
 }): LobbyState {
   const id = nanoid();
   let code = generateLobbyCode();
   while (lobbyByCode.has(code)) code = generateLobbyCode();
+
+  const stakeUsd = Math.max(0, Number(params.stakeUsd ?? 1));
+  const host: LobbyPlayer = {
+    ...params.host,
+    isSpectator: false,
+    ready: params.host.ready ?? false,
+    seat: params.host.seat ?? 0,
+    buyInUsd: params.host.buyInUsd > 0 ? params.host.buyInUsd : stakeUsd,
+  };
 
   const lobby: LobbyState = {
     id,
@@ -31,16 +63,17 @@ export function createLobby(params: {
     hostId: params.hostId,
     mode: params.mode,
     maxPlayers: params.maxPlayers,
+    stakeUsd,
     status: "WAITING",
     allowSpectators: params.allowSpectators,
-    players: [{ ...params.host, isSpectator: false, ready: false }],
+    players: [host],
     spectators: [],
     chat: [
       {
         id: nanoid(),
         userId: null,
         username: null,
-        content: `${params.host.displayName} created the lobby`,
+        content: `${host.displayName} created the lobby`,
         isSystem: true,
         isEmoji: false,
         createdAt: Date.now(),
@@ -59,6 +92,7 @@ export function joinLobby(
   code: string,
   player: LobbyPlayer,
   asSpectator = false,
+  opts?: { autoSeat?: boolean; preferredSeat?: number },
 ): { ok: true; lobby: LobbyState } | { ok: false; error: string } {
   const lobby = getLobbyByCode(code);
   if (!lobby) return { ok: false, error: "Lobby not found" };
@@ -75,25 +109,138 @@ export function joinLobby(
     existing.connected = true;
     existing.displayName = player.displayName;
     existing.avatarUrl = player.avatarUrl;
+    if (
+      opts?.autoSeat &&
+      existing.seat == null &&
+      !existing.isSpectator &&
+      lobby.status === "WAITING"
+    ) {
+      const seat =
+        typeof opts.preferredSeat === "number" ? opts.preferredSeat : nextFreeSeat(lobby);
+      if (seat != null && !takenSeats(lobby).has(seat)) {
+        existing.seat = seat;
+        existing.buyInUsd = lobby.stakeUsd;
+      }
+    }
     return { ok: true, lobby };
   }
 
   if (asSpectator) {
     if (!lobby.allowSpectators) return { ok: false, error: "Spectators not allowed" };
-    lobby.spectators.push({ ...player, isSpectator: true, ready: false });
+    lobby.spectators.push({
+      ...player,
+      isSpectator: true,
+      ready: false,
+      seat: null,
+      buyInUsd: 0,
+    });
   } else {
+    const seatedCount = seatedPlayers(lobby).length;
+    if (seatedCount >= lobby.maxPlayers && !opts?.autoSeat) {
+      // Still allow joining the room unseated if table is full of sitters? No — full.
+      if (lobby.players.length >= lobby.maxPlayers) {
+        if (lobby.allowSpectators) {
+          lobby.spectators.push({
+            ...player,
+            isSpectator: true,
+            ready: false,
+            seat: null,
+            buyInUsd: 0,
+          });
+          pushSystem(lobby, `${player.displayName} joined`);
+          return { ok: true, lobby };
+        }
+        return { ok: false, error: "Lobby is full" };
+      }
+    }
+
     if (lobby.players.length >= lobby.maxPlayers) {
       if (lobby.allowSpectators) {
-        lobby.spectators.push({ ...player, isSpectator: true, ready: false });
+        lobby.spectators.push({
+          ...player,
+          isSpectator: true,
+          ready: false,
+          seat: null,
+          buyInUsd: 0,
+        });
       } else {
         return { ok: false, error: "Lobby is full" };
       }
     } else {
-      lobby.players.push({ ...player, isSpectator: false, ready: false });
+      let seat: number | null = null;
+      let buyInUsd = 0;
+      if (opts?.autoSeat) {
+        const preferred =
+          typeof opts.preferredSeat === "number" ? opts.preferredSeat : nextFreeSeat(lobby);
+        if (preferred != null && !takenSeats(lobby).has(preferred)) {
+          seat = preferred;
+          buyInUsd = lobby.stakeUsd;
+        } else {
+          const free = nextFreeSeat(lobby);
+          if (free != null) {
+            seat = free;
+            buyInUsd = lobby.stakeUsd;
+          }
+        }
+      }
+      lobby.players.push({
+        ...player,
+        isSpectator: false,
+        ready: player.ready ?? false,
+        seat,
+        buyInUsd,
+      });
     }
   }
 
   pushSystem(lobby, `${player.displayName} joined`);
+  return { ok: true, lobby };
+}
+
+/** Claim or move to an empty seat around the table. */
+export function sitAtSeat(
+  lobbyId: string,
+  userId: string,
+  seat: number,
+): { ok: true; lobby: LobbyState } | { ok: false; error: string } {
+  const lobby = lobbies.get(lobbyId);
+  if (!lobby) return { ok: false, error: "Lobby not found" };
+  if (lobby.status !== "WAITING") return { ok: false, error: "Game already started" };
+  if (!Number.isInteger(seat) || seat < 0 || seat >= lobby.maxPlayers) {
+    return { ok: false, error: "Invalid seat" };
+  }
+
+  const occupant = lobby.players.find((p) => p.seat === seat);
+  if (occupant && occupant.userId !== userId) {
+    return { ok: false, error: "Seat taken" };
+  }
+
+  let player = lobby.players.find((p) => p.userId === userId);
+  if (!player) {
+    const specIdx = lobby.spectators.findIndex((p) => p.userId === userId);
+    if (specIdx >= 0) {
+      if (seatedPlayers(lobby).length >= lobby.maxPlayers && !occupant) {
+        return { ok: false, error: "Table is full" };
+      }
+      player = lobby.spectators.splice(specIdx, 1)[0];
+      player.isSpectator = false;
+      lobby.players.push(player);
+    } else {
+      return { ok: false, error: "Join the lobby first" };
+    }
+  }
+
+  if (occupant?.userId === userId) {
+    return { ok: true, lobby };
+  }
+
+  if (seatedPlayers(lobby).length >= lobby.maxPlayers && player.seat == null) {
+    return { ok: false, error: "Table is full" };
+  }
+
+  player.seat = seat;
+  player.buyInUsd = lobby.stakeUsd;
+  player.isSpectator = false;
   return { ok: true, lobby };
 }
 
@@ -136,7 +283,8 @@ export function addBotPlayer(
   const lobby = lobbies.get(lobbyId);
   if (!lobby) return { ok: false, error: "Lobby not found" };
   if (lobby.status !== "WAITING") return { ok: false, error: "Game already started" };
-  if (lobby.players.length >= lobby.maxPlayers) {
+  const free = nextFreeSeat(lobby);
+  if (free == null || lobby.players.length >= lobby.maxPlayers) {
     return { ok: false, error: "Lobby is full" };
   }
 
@@ -146,6 +294,8 @@ export function addBotPlayer(
     connected: true,
     isSpectator: false,
     isBot: true,
+    seat: free,
+    buyInUsd: lobby.stakeUsd,
   });
   pushSystem(lobby, `${bot.displayName} joined the table`);
   return { ok: true, lobby };
@@ -170,7 +320,10 @@ export function setReady(lobbyId: string, userId: string, ready: boolean) {
   const lobby = lobbies.get(lobbyId);
   if (!lobby) return null;
   const player = lobby.players.find((p) => p.userId === userId);
-  if (player) player.ready = ready;
+  if (player) {
+    if (ready && player.seat == null) return lobby;
+    player.ready = ready;
+  }
   return lobby;
 }
 
@@ -203,7 +356,10 @@ export function addChat(
 
 export function listPublicLobbies(): LobbyState[] {
   return [...lobbies.values()].filter(
-    (l) => l.mode === "PUBLIC" && l.status === "WAITING" && l.players.length < l.maxPlayers,
+    (l) =>
+      l.mode === "PUBLIC" &&
+      l.status === "WAITING" &&
+      seatedPlayers(l).length < l.maxPlayers,
   );
 }
 

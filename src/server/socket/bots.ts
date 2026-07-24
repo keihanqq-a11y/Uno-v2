@@ -69,6 +69,8 @@ export function botLobbyPlayer(bot: {
     connected: true,
     isSpectator: false,
     isBot: true as const,
+    seat: null as number | null,
+    buyInUsd: 0,
   };
 }
 

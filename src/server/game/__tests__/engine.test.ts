@@ -74,7 +74,7 @@ describe("canPlayCard", () => {
 });
 
 describe("createGame", () => {
-  it("deals 10 cards and starts playing", () => {
+  it("deals 7 cards and starts playing", () => {
     const state = createGame({
       id: "g1",
       lobbyId: null,
@@ -85,10 +85,10 @@ describe("createGame", () => {
     expect(state.phase).toBe("playing");
     expect(state.players).toHaveLength(4);
     for (const p of state.players) {
-      expect(p.hand).toHaveLength(10);
+      expect(p.hand).toHaveLength(7);
     }
     expect(state.discard).toHaveLength(1);
-    expect(state.deck.length).toBe(108 - 40 - 1);
+    expect(state.deck.length).toBe(108 - 28 - 1);
     expect(state.missedUnoPenalty).toBe(5);
     expect(state.maxVoluntaryDraws).toBe(5);
   });
@@ -423,7 +423,7 @@ describe("public view", () => {
       rng: seededRng(6),
     });
     const view = toPublicView(state, "u0");
-    expect(view.myHand).toHaveLength(10);
+    expect(view.myHand).toHaveLength(7);
     expect(view.players.every((p) => typeof p.handCount === "number")).toBe(true);
     expect(view.players[0]).not.toHaveProperty("hand");
     expect(view.maxVoluntaryDraws).toBe(5);

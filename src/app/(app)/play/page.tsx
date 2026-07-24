@@ -15,6 +15,7 @@ export default function PlayPage() {
   const router = useRouter();
   const { connected, emit, socket, socketError } = useSocket({ enabled: !!user });
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [stakeUsd, setStakeUsd] = useState(1);
   const [mode, setMode] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
   const [code, setCode] = useState("");
   const [queueSize, setQueueSize] = useState(4);
@@ -55,7 +56,7 @@ export default function PlayPage() {
     setError(null);
     const res = await emit<{ ok: boolean; lobby?: { code: string }; error?: string }>(
       "lobby:create",
-      { maxPlayers, mode, allowSpectators: true },
+      { maxPlayers, mode, allowSpectators: true, stakeUsd },
     );
     if (!res.ok || !res.lobby) {
       setError(res.error ?? "Could not create lobby");
@@ -249,6 +250,16 @@ export default function PlayPage() {
                 {(["PRIVATE", "PUBLIC"] as const).map((m) => (
                   <Chip key={m} active={mode === m} onClick={() => setMode(m)}>
                     {m === "PRIVATE" ? "Private" : "Public"}
+                  </Chip>
+                ))}
+              </div>
+              <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+                Buy-in
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[1, 5, 10, 25].map((n) => (
+                  <Chip key={n} active={stakeUsd === n} onClick={() => setStakeUsd(n)}>
+                    ${n}
                   </Chip>
                 ))}
               </div>

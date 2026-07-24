@@ -22,7 +22,7 @@ const DEFAULT_RULES: HouseRules = {
 };
 
 /** Cards dealt to each player at game start. */
-export const DEAL_HAND_SIZE = 10;
+export const DEAL_HAND_SIZE = 7;
 /** Max voluntary draws a player may take in a single turn. */
 export const MAX_VOLUNTARY_DRAWS = 5;
 
@@ -173,7 +173,7 @@ function markUnoState(player: PlayerState): void {
 }
 
 /**
- * Create a fresh game: shuffle, deal 10, pick starter, reveal first non-wild card.
+ * Create a fresh game: shuffle, deal DEAL_HAND_SIZE, pick starter, reveal first non-wild card.
  */
 export function createGame(params: {
   id: string;
@@ -186,6 +186,7 @@ export function createGame(params: {
     displayName: string;
     avatarUrl: string | null;
     seat: number;
+    buyInUsd?: number;
   }>;
   rules?: Partial<HouseRules>;
   rng?: () => number;
@@ -198,6 +199,7 @@ export function createGame(params: {
     .sort((a, b) => a.seat - b.seat)
     .map((p) => ({
       ...p,
+      buyInUsd: p.buyInUsd ?? 0,
       hand: [],
       connected: true,
       calledUno: false,
@@ -626,6 +628,7 @@ export function toPublicPlayer(p: PlayerState): PublicPlayerView {
     avatarUrl: p.avatarUrl,
     handCount: p.hand.length,
     seat: p.seat,
+    buyInUsd: p.buyInUsd,
     connected: p.connected,
     calledUno: p.calledUno,
     unoVulnerable: p.unoVulnerable,

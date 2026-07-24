@@ -41,6 +41,8 @@ export interface PlayerState {
   avatarUrl: string | null;
   hand: UnoCard[];
   seat: number;
+  /** Buy-in amount shown under the seat ($ joined for). */
+  buyInUsd: number;
   connected: boolean;
   calledUno: boolean;
   /** True when player has 1 card and has not called UNO yet (catchable). */
@@ -56,6 +58,7 @@ export interface PublicPlayerView {
   avatarUrl: string | null;
   handCount: number;
   seat: number;
+  buyInUsd: number;
   connected: boolean;
   calledUno: boolean;
   unoVulnerable: boolean;
@@ -139,6 +142,8 @@ export interface LobbyState {
   hostId: string;
   mode: "PRIVATE" | "PUBLIC";
   maxPlayers: number;
+  /** Table buy-in shown on seats. */
+  stakeUsd: number;
   status: "WAITING" | "IN_PROGRESS" | "FINISHED" | "ABANDONED";
   allowSpectators: boolean;
   players: LobbyPlayer[];
@@ -157,6 +162,10 @@ export interface LobbyPlayer {
   connected: boolean;
   isSpectator: boolean;
   isBot?: boolean;
+  /** Seat index around the table; null = in lobby but not seated yet. */
+  seat: number | null;
+  /** Amount they bought in for when they sat. */
+  buyInUsd: number;
 }
 
 export interface ChatMessagePayload {

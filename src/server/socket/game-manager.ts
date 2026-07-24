@@ -53,6 +53,8 @@ export function startGame(params: {
     username: string;
     displayName: string;
     avatarUrl: string | null;
+    seat?: number;
+    buyInUsd?: number;
   }>;
   maxPlayers: number;
   onStateChange?: (state: GameState) => void;
@@ -65,13 +67,14 @@ export function startGame(params: {
     id,
     lobbyId: params.lobbyId,
     hostId: params.hostId,
-    players: params.players.map((p, seat) => ({
+    players: params.players.map((p, i) => ({
       id: nanoid(8),
       userId: p.userId,
       username: p.username,
       displayName: p.displayName,
       avatarUrl: p.avatarUrl,
-      seat,
+      seat: typeof p.seat === "number" ? p.seat : i,
+      buyInUsd: p.buyInUsd ?? 0,
     })),
     rules: { missedUnoPenalty: penalty, turnTimerSec },
   });
