@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-command local setup for Windows / Mac / Linux.
- * Creates .env (SQLite), pushes schema, seeds demo data.
+ * Non-interactive local setup (Windows-safe).
+ * Creates SQLite .env, pushes schema, seeds data.
  */
 const { execSync } = require("child_process");
 const fs = require("fs");
@@ -9,7 +9,6 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const envPath = path.join(root, ".env");
-const examplePath = path.join(root, ".env.example");
 
 const sqliteEnv = `DATABASE_URL="file:./dev.db"
 JWT_SECRET="uno-premium-jwt-secret-change-in-production-d4af37"
@@ -28,22 +27,49 @@ NODE_ENV="development"
 PORT=3000
 `;
 
-console.log("→ Writing .env for SQLite (no Postgres needed)…");
-fs.writeFileSync(envPath, sqliteEnv);
-if (!fs.existsSync(examplePath)) {
-  fs.writeFileSync(examplePath, sqliteEnv);
+function log(msg) {
+  console.log(msg);
 }
 
 function run(cmd) {
-  console.log(`→ ${cmd}`);
-  execSync(cmd, { cwd: root, stdio: "inherit" });
+  log(`\n→ ${cmd}`);
+  execSync(cmd, {
+    cwd: root,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      // Prevent Prisma from waiting on prompts / telemetrics
+      PRISMA_HIDE_UPDATE_MESSAGE: "1",
+      CHECKPOINT_DISABLE: "1",
+    },
+    windowsHide: true,
+  });
 }
 
-run("npx prisma generate");
-run("npx prisma db push");
-run("npm run db:seed");
+try {
+  log("→ Writing .env for SQLite…");
+  fs.writeFileSync(envPath, sqliteEnv);
 
-console.log("\n✅ Setup complete.");
-console.log("Run:  npm run dev");
-console.log("Open: http://localhost:3000/play");
-console.log('Click "Start vs bots"\n');
+  // Remove old sqlite lock files if present
+  for (const f of ["dev.db", "dev.db-journal"]) {
+    const p = path.join(root, "prisma", f);
+    try {
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  run("npx prisma generate");
+  // --accept-data-loss avoids interactive "y/N" prompts on Windows
+  run("npx prisma db push --accept-data-loss --skip-generate");
+  run("npx tsx scripts/seed.ts");
+
+  log("\n✅ Setup complete.");
+  log("Next:  npm run dev");
+  log("Then open: http://localhost:3000/play\n");
+} catch (err) {
+  console.error("\n❌ Setup failed.");
+  console.error(err && err.message ? err.message : err);
+  process.exit(1);
+}
