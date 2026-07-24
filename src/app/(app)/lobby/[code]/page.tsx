@@ -14,7 +14,7 @@ export default function LobbyPage() {
   const code = params.code?.toUpperCase();
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { socket, connected, emit } = useSocket();
+  const { socket, connected, emit } = useSocket({ enabled: !!user });
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [friends, setFriends] = useState<Array<{ user: { id: string; displayName: string } }>>([]);

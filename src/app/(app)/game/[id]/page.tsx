@@ -13,7 +13,7 @@ export default function GamePage() {
   const gameId = params.id;
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { socket, connected, emit, socketError } = useSocket();
+  const { socket, connected, emit, socketError } = useSocket({ enabled: !!user });
   const [game, setGame] = useState<PublicGameView | null>(null);
   const [chat, setChat] = useState<ChatMessagePayload[]>([]);
   const [lobbyCode, setLobbyCode] = useState<string | null>(null);

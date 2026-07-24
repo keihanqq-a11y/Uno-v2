@@ -12,7 +12,7 @@ import { openWallet } from "@/components/wallet/WalletBar";
 export default function PlayPage() {
   const { user, loading, error: authError, refresh } = useAuth();
   const router = useRouter();
-  const { connected, emit, socket, socketError } = useSocket();
+  const { connected, emit, socket, socketError } = useSocket({ enabled: !!user });
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [mode, setMode] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
   const [code, setCode] = useState("");
@@ -182,12 +182,12 @@ export default function PlayPage() {
           <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row">
             <Button
               size="lg"
-              className="flex-1 rounded-2xl"
+              className="flex-1 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
               onClick={() => void createLobby()}
               disabled={!connected}
             >
               <PlusLobbyIcon />
-              Create Lobby
+              {connected ? "Create Lobby" : "Connecting…"}
             </Button>
             <Button
               size="lg"
@@ -220,12 +220,16 @@ export default function PlayPage() {
             </motion.form>
           )}
 
-          {socketError && (
-            <p className="mt-4 text-sm text-danger">
-              {socketError} — run <code className="text-white">npm run dev</code>
-            </p>
-          )}
-          {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+          {socketError ? (
+            <div className="mt-5 w-full max-w-md rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-sm text-red-200">
+              <p className="font-semibold text-red-300">Connection issue</p>
+              <p className="mt-1 text-red-200/90">{socketError}</p>
+              <p className="mt-2 text-xs text-red-200/70">
+                Keep the PowerShell window open with <span className="font-mono text-white">npm run dev</span> running, then refresh.
+              </p>
+            </div>
+          ) : null}
+          {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
         </motion.div>
 
         <motion.div
