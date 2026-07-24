@@ -12,21 +12,21 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { UnoXLogo } from "@/components/brand/UnoXLogo";
+import { playCardPlace } from "@/lib/audio/sfx";
 
-function playTone(kind: "uno" | "catch" | "play" | "deal") {
+function playTone(kind: "uno" | "catch") {
   try {
     const ctx = new AudioContext();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.connect(g);
     g.connect(ctx.destination);
-    o.type = kind === "deal" ? "square" : "triangle";
-    o.frequency.value =
-      kind === "uno" ? 660 : kind === "catch" ? 220 : kind === "deal" ? 380 : 440;
-    g.gain.value = 0.03;
+    o.type = "triangle";
+    o.frequency.value = kind === "uno" ? 660 : 220;
+    g.gain.value = 0.04;
     o.start();
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-    o.stop(ctx.currentTime + 0.22);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    o.stop(ctx.currentTime + 0.35);
   } catch {
     /* audio optional */
   }
@@ -84,6 +84,7 @@ export function GameTable({
   const [dealing, setDealing] = useState(false);
   const [flyers, setFlyers] = useState<FlyingCard[]>([]);
   const [handRevealed, setHandRevealed] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   const [throwCard, setThrowCard] = useState<UnoCard | null>(null);
   const prevAction = useRef(game.lastAction);
@@ -123,49 +124,81 @@ export function GameTable({
     [game],
   );
 
-  // Deal throw-in animation once per game
+  // Deal throw-in animation once per game — slow enough to watch each card
   useEffect(() => {
     if (dealtGame.current === game.id) return;
     if (!game.myHand.length && game.phase !== "playing") return;
     dealtGame.current = game.id;
 
+    const STAGGER = 0.28; // seconds between each dealt card
+    const FLIGHT = 0.85; // flight duration
+
     const cards: FlyingCard[] = [];
     const rounds = Math.min(10, Math.max(game.myHand.length, 1));
     let n = 0;
+    let handIdx = 0;
     for (let r = 0; r < rounds; r++) {
       for (let s = 0; s < opponents.length; s++) {
         cards.push({
           id: `fly-o-${r}-${s}`,
           to: "opponent",
           seatIndex: s,
-          delay: n * 0.055,
+          delay: n * STAGGER,
         });
         n += 1;
       }
       cards.push({
         id: `fly-h-${r}`,
         to: "hand",
-        seatIndex: 0,
-        delay: n * 0.055,
+        seatIndex: handIdx,
+        delay: n * STAGGER,
       });
+      handIdx += 1;
       n += 1;
     }
 
     setDealing(true);
     setHandRevealed(false);
+    setRevealedCount(0);
     setFlyers(cards);
-    playTone("deal");
+    playCardPlace("deal");
 
-    const totalMs = n * 55 + 700;
-    const t1 = setTimeout(() => setHandRevealed(true), Math.min(totalMs - 200, totalMs * 0.75));
-    const t2 = setTimeout(() => {
+    // Reveal each of your cards as its flyer lands
+    const revealTimers: ReturnType<typeof setTimeout>[] = [];
+    for (let i = 0; i < rounds; i++) {
+      const handFlyer = cards.find((c) => c.id === `fly-h-${i}`);
+      if (!handFlyer) continue;
+      const landAt = (handFlyer.delay + FLIGHT) * 1000;
+      revealTimers.push(
+        setTimeout(() => {
+          setRevealedCount((c) => Math.max(c, i + 1));
+          playCardPlace("deal");
+        }, landAt),
+      );
+    }
+
+    // Soft slap for opponent deals too (every other card so it isn't spammy)
+    const dealSlapTimers: ReturnType<typeof setTimeout>[] = [];
+    cards.forEach((c, idx) => {
+      if (c.to !== "opponent") return;
+      if (idx % 2 !== 0) return;
+      dealSlapTimers.push(
+        setTimeout(() => playCardPlace("deal"), (c.delay + FLIGHT * 0.85) * 1000),
+      );
+    });
+
+    const totalMs = (n - 1) * STAGGER * 1000 + FLIGHT * 1000 + 500;
+    const done = setTimeout(() => {
       setDealing(false);
       setFlyers([]);
       setHandRevealed(true);
+      setRevealedCount(game.myHand.length);
     }, totalMs);
+
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      revealTimers.forEach(clearTimeout);
+      dealSlapTimers.forEach(clearTimeout);
+      clearTimeout(done);
     };
   }, [game.id, game.myHand.length, game.phase, opponents.length]);
 
@@ -180,9 +213,12 @@ export function GameTable({
         setNotice(`Caught! +${game.lastAction.penalty}`);
       }
       if (game.lastAction.type === "play") {
-        playTone("play");
+        playCardPlace("play");
         setThrowCard(game.lastAction.card);
-        setTimeout(() => setThrowCard(null), 420);
+        setTimeout(() => setThrowCard(null), 520);
+      }
+      if (game.lastAction.type === "draw") {
+        playCardPlace("deal");
       }
       prevAction.current = game.lastAction;
       const t = setTimeout(() => setNotice(null), 1600);
@@ -252,15 +288,17 @@ export function GameTable({
     onPlay(cardId);
   };
 
-  const visibleHand = handRevealed ? game.myHand : [];
+  const visibleHand = handRevealed
+    ? game.myHand
+    : game.myHand.slice(0, revealedCount);
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4.25rem)] flex-col bg-[#050505] lg:flex-row">
+    <div className="relative flex min-h-screen flex-col bg-[#050505]">
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.06),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.03),transparent_45%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.07),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.03),transparent_45%)]" />
 
         {/* Top bar */}
-        <div className="relative z-20 flex items-center justify-between gap-3 px-4 py-2.5">
+        <div className="relative z-20 flex items-center justify-between gap-3 px-4 py-2">
           <div className="flex items-center gap-3">
             <UnoXLogo size="sm" priority />
             <span className="hidden text-[10px] uppercase tracking-[0.22em] text-zinc-500 sm:inline">
@@ -273,12 +311,7 @@ export function GameTable({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="lg:hidden"
-              onClick={() => setChatOpen(true)}
-            >
+            <Button size="sm" variant="ghost" onClick={() => setChatOpen(true)}>
               Chat
             </Button>
             {canCashout && (
@@ -296,47 +329,47 @@ export function GameTable({
           </div>
         </div>
 
-        {/* Arena */}
-        <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-2 pb-2 sm:px-4">
+        {/* Arena — dominate the viewport */}
+        <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-2 pb-1 sm:px-4">
           <div
             ref={arenaRef}
-            className="relative mx-auto aspect-[16/10] w-full min-h-[260px] max-h-[min(52vh,480px)]"
+            className="relative mx-auto w-full flex-1 min-h-[380px] max-h-[min(72vh,720px)]"
           >
-            <div className="unox-table absolute inset-[3%] overflow-hidden rounded-[50%] sm:inset-[4%]">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#1a1a1a_0%,#0e0e0e_50%,#080808_100%)]" />
-              <div className="pointer-events-none absolute inset-[3%] rounded-[50%] border border-white/[0.07]" />
+            <div className="unox-table absolute inset-[1.5%] overflow-hidden rounded-[50%] sm:inset-[2%]">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#1c1c1c_0%,#101010_50%,#070707_100%)]" />
+              <div className="pointer-events-none absolute inset-[2.5%] rounded-[50%] border border-white/[0.07]" />
 
               {/* Center pile */}
-              <div className="absolute left-1/2 top-[42%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
+              <div className="absolute left-1/2 top-[44%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
                 <UnoXLogo
                   size="table"
                   className={cn(
-                    "pointer-events-none transition-opacity",
-                    dealing ? "opacity-40" : "opacity-90",
+                    "pointer-events-none h-20 sm:h-24 md:h-28 transition-opacity",
+                    dealing ? "opacity-35" : "opacity-95",
                   )}
                 />
 
-                <div className="flex items-end gap-6 sm:gap-10">
+                <div className="flex items-end gap-8 sm:gap-14">
                   <button
                     type="button"
                     disabled={!canDraw}
                     onClick={onDraw}
                     className={cn(
-                      "relative flex flex-col items-center gap-1 transition",
+                      "relative flex flex-col items-center gap-1.5 transition",
                       canDraw && "hover:-translate-y-1 cursor-pointer",
                       !canDraw && "cursor-default opacity-70",
                     )}
                     title={canDraw ? "Draw a card" : undefined}
                   >
                     <div className="relative">
-                      <div className="absolute -left-1 -top-1 rotate-[-7deg] opacity-40">
+                      <div className="absolute -left-1.5 -top-1.5 rotate-[-8deg] opacity-40">
                         <UnoCardView
                           card={{ id: "deck-2", color: "wild", value: "wild" }}
                           faceDown
                           size="md"
                         />
                       </div>
-                      <div className="absolute -left-0.5 -top-0.5 rotate-[-3deg] opacity-65">
+                      <div className="absolute -left-0.5 -top-0.5 rotate-[-3deg] opacity-70">
                         <UnoCardView
                           card={{ id: "deck-1", color: "wild", value: "wild" }}
                           faceDown
@@ -358,14 +391,14 @@ export function GameTable({
                   <div
                     ref={discardRef}
                     className={cn(
-                      "relative flex flex-col items-center gap-1 rounded-2xl p-2 transition",
+                      "relative flex min-h-[8rem] min-w-[6rem] flex-col items-center justify-end gap-1.5 rounded-2xl p-3 transition",
                       dropHot && "bg-red-500/15 ring-2 ring-red-400/70",
                     )}
                   >
                     {game.topCard ? (
                       <UnoCardView card={game.topCard} size="md" />
                     ) : (
-                      <div className="flex h-24 w-16 items-center justify-center rounded-xl border border-dashed border-white/20 text-[10px] text-zinc-600">
+                      <div className="flex h-[7.25rem] w-[5rem] items-center justify-center rounded-[0.9rem] border border-dashed border-white/20 text-[10px] text-zinc-600">
                         Drop
                       </div>
                     )}
@@ -394,10 +427,10 @@ export function GameTable({
                       {throwCard && (
                         <motion.div
                           className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                          initial={{ y: 80, scale: 0.85, opacity: 0.2, rotate: -12 }}
-                          animate={{ y: 0, scale: 1, opacity: 1, rotate: 4 }}
+                          initial={{ y: 100, scale: 0.8, opacity: 0.15, rotate: -14 }}
+                          animate={{ y: 0, scale: 1, opacity: 1, rotate: 3 }}
                           exit={{ opacity: 0 }}
-                          transition={{ type: "spring", stiffness: 420, damping: 24 }}
+                          transition={{ type: "spring", stiffness: 280, damping: 22 }}
                         >
                           <UnoCardView card={throwCard} size="md" />
                         </motion.div>
@@ -406,18 +439,18 @@ export function GameTable({
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="font-mono text-xl tabular-nums text-white/85">{timerLeft}</span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="font-mono text-2xl tabular-nums text-white/85">{timerLeft}</span>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-600">sec</span>
                 </div>
               </div>
 
-              {/* Flying deal cards */}
+              {/* Flying deal cards — slow flight */}
               <AnimatePresence>
                 {flyers.map((f) => {
                   const slot = OPPONENT_SLOTS[f.seatIndex % OPPONENT_SLOTS.length];
                   const endLeft = f.to === "hand" ? "50%" : slot.left;
-                  const endTop = f.to === "hand" ? "108%" : slot.top;
+                  const endTop = f.to === "hand" ? "112%" : slot.top;
                   return (
                     <motion.div
                       key={f.id}
@@ -426,26 +459,26 @@ export function GameTable({
                         left: "50%",
                         top: "48%",
                         opacity: 1,
-                        scale: 0.95,
+                        scale: 1,
                         rotate: 0,
                       }}
                       animate={{
                         left: endLeft,
                         top: endTop,
-                        opacity: 0,
-                        scale: 0.65,
-                        rotate: f.to === "hand" ? 10 : -14,
+                        opacity: f.to === "hand" ? 0.15 : 0,
+                        scale: f.to === "hand" ? 1.05 : 0.75,
+                        rotate: f.to === "hand" ? 8 : -16,
                       }}
                       transition={{
                         delay: f.delay,
-                        duration: 0.45,
+                        duration: 0.85,
                         ease: [0.22, 1, 0.36, 1],
                       }}
                     >
                       <UnoCardView
                         card={{ id: f.id, color: "wild", value: "wild" }}
                         faceDown
-                        size="sm"
+                        size="md"
                       />
                     </motion.div>
                   );
@@ -468,7 +501,7 @@ export function GameTable({
           </div>
 
           {/* Hand + controls */}
-          <div className="relative z-10 mt-3 w-full max-w-4xl self-center px-1">
+          <div className="relative z-10 mt-2 w-full max-w-5xl self-center px-1">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 {me && (
@@ -488,7 +521,9 @@ export function GameTable({
                 )}
                 <p className="text-sm text-zinc-500">
                   {dealing ? (
-                    <span className="text-zinc-400">Cards incoming…</span>
+                    <span className="text-zinc-300">
+                      Handing out cards… {revealedCount}/{game.myHand.length || 10}
+                    </span>
                   ) : isMyTurn ? (
                     <span className="text-red-400">Your turn — drag a card</span>
                   ) : (
@@ -511,14 +546,14 @@ export function GameTable({
               </div>
             </div>
 
-            {/* Fan hand */}
-            <div className="relative mx-auto flex h-[150px] max-w-3xl items-end justify-center overflow-visible pb-2">
+            {/* Fan hand — larger cards */}
+            <div className="relative mx-auto flex h-[190px] max-w-4xl items-end justify-center overflow-visible pb-3">
               {visibleHand.map((card, i) => {
                 const n = visibleHand.length;
                 const mid = (n - 1) / 2;
                 const offset = i - mid;
-                const rotate = offset * 5.5;
-                const x = offset * 34;
+                const rotate = offset * 5;
+                const x = offset * 42;
                 const playable = playableIds.has(card.id);
                 const lifting = draggingId === card.id;
 
@@ -535,27 +570,27 @@ export function GameTable({
                     }}
                   >
                     <motion.div
-                      initial={{ y: 48, opacity: 0 }}
+                      initial={{ y: 60, opacity: 0, scale: 0.9 }}
                       animate={{
-                        y: lifting ? -20 : playable && isMyTurn ? -8 : 0,
+                        y: lifting ? -24 : playable && isMyTurn ? -10 : 0,
                         opacity: 1,
+                        scale: 1,
                       }}
                       transition={{
                         type: "spring",
-                        stiffness: 380,
-                        damping: 28,
-                        delay: Math.min(i * 0.025, 0.35),
+                        stiffness: 260,
+                        damping: 24,
                       }}
-                      drag={playable && isMyTurn ? true : false}
+                      drag={playable && isMyTurn && !dealing ? true : false}
                       dragSnapToOrigin
                       dragMomentum={false}
                       dragElastic={0.15}
                       onDragStart={() => setDraggingId(card.id)}
                       onDrag={handleDrag}
                       onDragEnd={(_, info) => handleDragEnd(card.id, info)}
-                      whileDrag={{ scale: 1.12, rotate: -rotate, zIndex: 50 }}
+                      whileDrag={{ scale: 1.1, rotate: -rotate, zIndex: 50 }}
                       className={cn(
-                        playable && isMyTurn
+                        playable && isMyTurn && !dealing
                           ? "cursor-grab touch-none active:cursor-grabbing"
                           : "cursor-default",
                       )}
@@ -565,11 +600,12 @@ export function GameTable({
                         card={card}
                         playable={playable}
                         selected={lifting}
+                        size="lg"
                         asShell
                         className={cn(
                           playable &&
                             isMyTurn &&
-                            "shadow-[0_12px_28px_rgba(239,68,68,0.25)]",
+                            "shadow-[0_14px_32px_rgba(239,68,68,0.28)]",
                         )}
                       />
                     </motion.div>
@@ -592,13 +628,14 @@ export function GameTable({
         )}
       </div>
 
-      <aside className="hidden border-l border-white/10 lg:block lg:w-80">
-        <ChatPanel messages={chat} onSend={onChat} className="h-full rounded-none border-0" />
-      </aside>
-
       <AnimatePresence>
         {chatOpen && (
-          <motion.div className="fixed inset-0 z-50 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            className="fixed inset-0 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <button
               type="button"
               className="absolute inset-0 bg-black/70"
@@ -606,15 +643,22 @@ export function GameTable({
               onClick={() => setChatOpen(false)}
             />
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="absolute inset-x-0 bottom-0 h-[65vh] overflow-hidden rounded-t-3xl border border-white/10 bg-[#0a0a0a]"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+              className="absolute inset-y-0 right-0 w-full max-w-sm overflow-hidden border-l border-white/10 bg-[#0a0a0a] sm:rounded-l-3xl"
             >
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Chat</p>
+                <Button size="sm" variant="ghost" onClick={() => setChatOpen(false)}>
+                  Close
+                </Button>
+              </div>
               <ChatPanel
                 messages={chat}
                 onSend={onChat}
-                className="h-full rounded-none border-0"
+                className="h-[calc(100%-52px)] rounded-none border-0"
               />
             </motion.div>
           </motion.div>

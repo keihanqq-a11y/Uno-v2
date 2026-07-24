@@ -16,6 +16,11 @@ export function AppNav() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
+  // Full-bleed table focus on active games
+  if (pathname.startsWith("/game/")) {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black/85 backdrop-blur-md">
       <div className="mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between gap-3 px-4">
