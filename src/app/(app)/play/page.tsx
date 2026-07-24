@@ -113,16 +113,17 @@ export default function PlayPage() {
   };
 
   if (loading) {
-    return <div className="p-10 text-muted">Starting…</div>;
+    return <div className="p-10 text-zinc-400">Starting…</div>;
   }
 
   if (authError || !user) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-danger">{authError ?? "Could not start a guest session."}</p>
-        <p className="mt-3 text-sm text-muted">
-          Run <code className="text-white">npx prisma db push</code> then{" "}
-          <code className="text-white">npm run setup</code> and restart.
+        <p className="text-red-400">{authError ?? "Could not start a guest session."}</p>
+        <p className="mt-3 text-sm text-zinc-400">
+          Stop the server with Ctrl+C, then run{" "}
+          <span className="font-mono text-white">npm run setup</span> and{" "}
+          <span className="font-mono text-white">npm run dev</span>.
         </p>
         <Button className="mt-6" onClick={() => void refresh()}>
           Try again
@@ -162,27 +163,24 @@ export default function PlayPage() {
             friends play against you.
           </p>
 
-          {!canPlay && (
-            <motion.div
+          {!canPlay ? (
+            <motion.button
+              type="button"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-300"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => openWallet("Deposit")}
+              className="mt-6 rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm text-zinc-300 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
             >
-              Balance is <span className="font-semibold text-white">$0.00</span> — deposit to play.
-              <button
-                type="button"
-                onClick={() => openWallet("Deposit")}
-                className="ml-2 font-semibold text-white underline underline-offset-2 hover:text-zinc-200"
-              >
-                Deposit now
-              </button>
-            </motion.div>
-          )}
+              Balance is <span className="font-semibold text-white">$0.00</span> — deposit to play
+            </motion.button>
+          ) : null}
 
           <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row">
             <Button
               size="lg"
-              className="flex-1 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+              className="flex-1 rounded-2xl"
               onClick={() => void createLobby()}
               disabled={!connected}
             >
@@ -200,10 +198,10 @@ export default function PlayPage() {
             </Button>
           </div>
 
-          {joinOpen && (
+          {joinOpen ? (
             <motion.form
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
               onSubmit={joinLobby}
               className="mt-4 flex w-full max-w-md gap-2"
             >
@@ -218,14 +216,15 @@ export default function PlayPage() {
                 Join
               </Button>
             </motion.form>
-          )}
+          ) : null}
 
           {socketError ? (
             <div className="mt-5 w-full max-w-md rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-sm text-red-200">
               <p className="font-semibold text-red-300">Connection issue</p>
               <p className="mt-1 text-red-200/90">{socketError}</p>
               <p className="mt-2 text-xs text-red-200/70">
-                Keep the PowerShell window open with <span className="font-mono text-white">npm run dev</span> running, then refresh.
+                Keep PowerShell open with{" "}
+                <span className="font-mono text-white">npm run dev</span>, then refresh.
               </p>
             </div>
           ) : null}
@@ -296,11 +295,22 @@ export default function PlayPage() {
                   </Chip>
                 ))}
                 {!queueing ? (
-                  <Button size="sm" variant="secondary" className="ml-auto" onClick={() => void joinQueue()} disabled={!connected}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="ml-auto"
+                    onClick={() => void joinQueue()}
+                    disabled={!connected}
+                  >
                     Find match
                   </Button>
                 ) : (
-                  <Button size="sm" variant="danger" className="ml-auto" onClick={() => void leaveQueue()}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="ml-auto"
+                    onClick={() => void leaveQueue()}
+                  >
                     Cancel
                   </Button>
                 )}
@@ -336,8 +346,12 @@ function MetaCell({
   active?: boolean;
 }) {
   return (
-    <div className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-white" : "text-zinc-400"}`}>
-      <p className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-white" : "text-zinc-500"}`}>
+    <div
+      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-white" : "text-zinc-400"}`}
+    >
+      <p
+        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-white" : "text-zinc-500"}`}
+      >
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold">{value}</p>

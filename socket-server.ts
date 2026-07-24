@@ -15,5 +15,5 @@ const httpServer = createServer((_req, res) => {
 initSocketServer(httpServer);
 
 httpServer.listen(port, "0.0.0.0", () => {
-  console.log(`> UNO sockets ready on http://localhost:${port}`);
+  console.log(`> UnoX sockets ready on http://localhost:${port}`);
 });
