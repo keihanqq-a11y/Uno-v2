@@ -2,7 +2,11 @@
   "name": "uno-premium",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "predev": "node scripts/check-node.js",
     "dev": "tsx server.ts",
     "dev:next": "next dev",
     "build": "prisma generate && next build",
