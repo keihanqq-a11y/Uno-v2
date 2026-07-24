@@ -302,7 +302,12 @@ function OpponentSeat({
           player.displayName.slice(0, 1)
         )}
       </div>
-      <p className="text-sm">{player.displayName}</p>
+      <p className="text-sm">
+        {player.displayName}
+        {player.username.startsWith("bot_") && (
+          <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">bot</span>
+        )}
+      </p>
       <div className="flex items-end -space-x-2">
         {Array.from({ length: Math.min(player.handCount, 7) }).map((_, i) => (
           <UnoCardView
