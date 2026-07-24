@@ -110,12 +110,16 @@ export function UnoCardView({
     );
   }
 
-  const wild = card.color === "wild";
-  const faceColor = wild ? null : card.color;
+  const faceColor = card.color === "wild" ? null : card.color;
   const bg = faceColor ? FACE[faceColor] : "#141414";
-  const ink = wild || (faceColor && !isDarkText(faceColor)) ? "#fff" : "#1a1a1a";
-  const centerInk =
-    wild || !faceColor ? "#fff" : isDarkText(faceColor) ? "#1a1a1a" : FACE[faceColor];
+  const ink =
+    !faceColor || !isDarkText(faceColor) ? "#fff" : "#1a1a1a";
+  const centerInk = !faceColor
+    ? "#fff"
+    : isDarkText(faceColor)
+      ? "#1a1a1a"
+      : FACE[faceColor];
+  const wild = card.color === "wild";
   const label = symbol(card.value);
   const action = isAction(card.value);
 
