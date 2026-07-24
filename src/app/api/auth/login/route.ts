@@ -54,6 +54,7 @@ export async function POST(req: Request) {
         level: user.level,
         xp: user.xp,
         emailVerified: user.emailVerified,
+        balanceUsd: user.balanceUsd ?? 0,
       },
       dailyReward: daily?.ok ? daily : null,
     });

@@ -69,6 +69,8 @@ model User {
   loginStreak       Int       @default(0)
   isBanned          Boolean   @default(false)
   banReason         String?
+  /** Site balance in USD. Starts at 0 — deposit to play. */
+  balanceUsd        Float     @default(0)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -85,11 +87,43 @@ model User {
   ticketMessages TicketMessage[]
   chatMessages   ChatMessage[]
   notifications  Notification[]
+  walletTxs      WalletTransaction[]
 
   @@index([wins])
   @@index([xp])
   @@index([level])
   @@index([gamesPlayed])
+}
+
+enum WalletTxType {
+  DEPOSIT
+  WITHDRAW
+}
+
+enum WalletTxStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model WalletTransaction {
+  id              String          @id @default(cuid())
+  userId          String
+  type            WalletTxType
+  status          WalletTxStatus  @default(COMPLETED)
+  amountUsd       Float
+  assetId         String?
+  assetSymbol     String?
+  cryptoAmount    Float?
+  address         String?
+  note            String?
+  balanceAfterUsd Float
+  createdAt       DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
 }
 
 model Session {

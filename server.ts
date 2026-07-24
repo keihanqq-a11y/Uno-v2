@@ -19,6 +19,6 @@ app.prepare().then(() => {
   initSocketServer(httpServer);
 
   httpServer.listen(port, () => {
-    console.log(`> UNO Premium ready on http://${hostname}:${port}`);
+    console.log(`> UnoX ready on http://${hostname}:${port}`);
   });
 });

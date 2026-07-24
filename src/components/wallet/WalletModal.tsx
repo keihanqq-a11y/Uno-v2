@@ -10,8 +10,9 @@ import {
   type WalletAsset,
 } from "@/lib/wallet/assets";
 import { CryptoLogo } from "@/components/wallet/CryptoLogo";
+import { useAuth } from "@/hooks/useAuth";
 
-type Tab = "Deposit" | "Withdraw" | "Tip" | "Buy Crypto";
+type Tab = "Deposit" | "Withdraw";
 
 type Props = {
   open: boolean;
@@ -19,7 +20,7 @@ type Props = {
   initialTab?: Tab;
 };
 
-const TABS: Tab[] = ["Deposit", "Withdraw", "Tip", "Buy Crypto"];
+const TABS: Tab[] = ["Deposit", "Withdraw"];
 
 function formatUsd(n: number) {
   return n.toLocaleString("en-US", {
@@ -29,33 +30,39 @@ function formatUsd(n: number) {
   });
 }
 
-function formatRate(n: number) {
-  if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (n >= 1) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
-}
-
 export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
+  const { user, setBalance } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [assetId, setAssetId] = useState<WalletAssetId>("SOL");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [amount, setAmount] = useState("1");
+  const [usdAmount, setUsdAmount] = useState("25");
+  const [destAddress, setDestAddress] = useState("");
   const [copied, setCopied] = useState(false);
   const [rates, setRates] = useState<Record<string, number>>({});
-  const [tipUser, setTipUser] = useState("");
-  const [tipAmount, setTipAmount] = useState("5");
-  const [tipSent, setTipSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const asset = useMemo(
     () => WALLET_ASSETS.find((a) => a.id === assetId) ?? WALLET_ASSETS[0],
     [assetId],
   );
 
+  const balance = user?.balanceUsd ?? 0;
+  const usd = Number(usdAmount) || 0;
+  const rate = rates[asset.id] ?? 0;
+  const cryptoAmount = rate > 0 ? usd / rate : 0;
+
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (open) setTab(initialTab);
+    if (open) {
+      setTab(initialTab);
+      setError(null);
+      setSuccess(null);
+      setPickerOpen(false);
+    }
   }, [open, initialTab]);
 
   useEffect(() => {
@@ -93,10 +100,6 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
     };
   }, [open]);
 
-  const usdRate = rates[asset.id] ?? 0;
-  const cryptoAmount = Number(amount) || 0;
-  const usdValue = cryptoAmount * usdRate;
-
   const copyAddress = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(asset.address);
@@ -106,6 +109,57 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
       /* ignore */
     }
   }, [asset.address]);
+
+  const confirmDeposit = async () => {
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/wallet/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountUsd: usd,
+          assetId: asset.id,
+          cryptoAmount: Number(cryptoAmount.toFixed(8)),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Deposit failed");
+      setBalance(data.balanceUsd);
+      setSuccess(`Deposit credited — balance ${formatUsd(data.balanceUsd)}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Deposit failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmWithdraw = async () => {
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountUsd: usd,
+          assetId: asset.id,
+          destinationAddress: destAddress,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Withdraw failed");
+      setBalance(data.balanceUsd);
+      setSuccess(`Sent to your wallet — balance ${formatUsd(data.balanceUsd)}`);
+      setDestAddress("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Withdraw failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -123,7 +177,7 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
           <motion.button
             type="button"
             aria-label="Close wallet"
-            className="absolute inset-0 bg-black/75 backdrop-blur-[6px]"
+            className="absolute inset-0 bg-black/80 backdrop-blur-[6px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -134,29 +188,21 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="wallet-title"
-            className="relative z-10 flex max-h-[min(92vh,820px)] w-full max-w-[440px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0e] shadow-[0_30px_80px_rgba(0,0,0,0.75)]"
+            className="relative z-10 flex max-h-[min(92vh,820px)] w-full max-w-[420px] flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#0a0a0a] shadow-[0_30px_80px_rgba(0,0,0,0.8)]"
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#1aef4d]/10 to-transparent" />
-
-            <div className="relative flex items-center justify-between border-b border-white/8 px-4 py-3.5">
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#1aef4d]/15 ring-1 ring-[#1aef4d]/35">
-                  <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 text-[#1aef4d]" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 10h18M5 10V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M5 10v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" />
-                    <path d="M12 14v2" />
-                  </svg>
-                </span>
-                <div>
-                  <h2 id="wallet-title" className="font-display text-lg tracking-wide text-white">
-                    Wallet
-                  </h2>
-                  <p className="text-[11px] text-zinc-500">Deposit · withdraw · tip friends</p>
-                </div>
+            <div className="relative flex items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <div>
+                <h2 id="wallet-title" className="font-display text-lg font-bold tracking-wide text-white">
+                  Wallet
+                </h2>
+                <p className="text-[11px] text-zinc-500">
+                  Balance {formatUsd(balance)}
+                </p>
               </div>
               <button
                 type="button"
@@ -170,7 +216,7 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
               </button>
             </div>
 
-            <div className="relative flex gap-1 overflow-x-auto border-b border-white/8 px-3 py-2">
+            <div className="relative flex gap-1 border-b border-white/10 px-3 py-2">
               {TABS.map((t) => {
                 const active = tab === t;
                 return (
@@ -180,16 +226,17 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                     onClick={() => {
                       setTab(t);
                       setPickerOpen(false);
-                      setTipSent(false);
+                      setError(null);
+                      setSuccess(null);
                     }}
-                    className={`relative shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    className={`relative flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                       active ? "text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"
                     }`}
                   >
                     {active ? (
                       <motion.span
                         layoutId="wallet-tab"
-                        className="absolute inset-0 rounded-lg bg-[#1aef4d]"
+                        className="absolute inset-0 rounded-lg bg-white"
                         transition={{ type: "spring", stiffness: 420, damping: 32 }}
                       />
                     ) : null}
@@ -207,100 +254,146 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -12 }}
                   transition={{ duration: 0.18 }}
+                  className="space-y-4"
                 >
-                  {tab === "Deposit" ? (
-                    <DepositPanel
-                      asset={asset}
-                      assetId={assetId}
-                      pickerOpen={pickerOpen}
-                      setPickerOpen={setPickerOpen}
-                      onPick={(id) => {
-                        setAssetId(id);
-                        setPickerOpen(false);
-                        setCopied(false);
-                      }}
-                      amount={amount}
-                      setAmount={setAmount}
-                      usdRate={usdRate}
-                      usdValue={usdValue}
-                      copied={copied}
-                      onCopy={copyAddress}
-                    />
-                  ) : null}
+                  <AssetSelect
+                    asset={asset}
+                    open={pickerOpen}
+                    setOpen={setPickerOpen}
+                    onPick={(id) => {
+                      setAssetId(id);
+                      setPickerOpen(false);
+                      setCopied(false);
+                    }}
+                  />
 
-                  {tab === "Withdraw" ? (
-                    <div className="space-y-4">
-                      <AssetSelect
-                        asset={asset}
-                        open={pickerOpen}
-                        setOpen={setPickerOpen}
-                        onPick={(id) => {
-                          setAssetId(id);
-                          setPickerOpen(false);
-                        }}
-                      />
-                      <Field label="Destination address">
-                        <input
-                          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 font-mono text-xs text-white outline-none focus:border-[#1aef4d]/50"
-                          placeholder={`Paste ${asset.symbol} address`}
+                  {tab === "Deposit" ? (
+                    <>
+                      <motion.div
+                        key={assetId}
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative mx-auto w-fit overflow-hidden rounded-2xl bg-white p-3"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrCodeUrl(asset.address, 168)}
+                          alt={`${asset.symbol} deposit QR`}
+                          width={168}
+                          height={168}
+                          className="block"
                         />
-                      </Field>
-                      <Field label="Amount">
+                        <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                          <CryptoLogo id={asset.id} size={28} />
+                        </span>
+                      </motion.div>
+
+                      <div className="overflow-hidden rounded-xl border border-white/10 bg-black/35">
+                        <div className="flex items-center gap-2 px-3 py-2.5">
+                          <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-200 sm:text-xs">
+                            {asset.address}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => void copyAddress()}
+                            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                              copied ? "bg-zinc-200 text-black" : "bg-white text-black hover:bg-neutral-200"
+                            }`}
+                          >
+                            {copied ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-center text-[12px] leading-relaxed text-zinc-400">
+                        Send only <span className="font-semibold text-white">{asset.symbol}</span> on{" "}
+                        <span className="font-semibold text-white">{asset.network}</span>.
+                      </p>
+
+                      <Field label="Deposit amount (USD)">
                         <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5">
+                          <span className="text-zinc-500">$</span>
                           <input
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-                            className="w-full bg-transparent text-sm text-white outline-none"
+                            value={usdAmount}
+                            onChange={(e) => setUsdAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                            className="w-full bg-transparent text-sm font-semibold text-white outline-none"
                             inputMode="decimal"
                           />
-                          <span className="text-xs font-semibold text-zinc-400">{asset.symbol}</span>
                         </div>
                       </Field>
+
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-zinc-500">You send</span>
+                          <span className="font-semibold text-white">
+                            {rate ? `${cryptoAmount.toFixed(6)} ${asset.symbol}` : "—"}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex justify-between gap-3">
+                          <span className="text-zinc-500">Rate</span>
+                          <span>1 {asset.symbol} ≈ {rate ? formatUsd(rate) : "—"}</span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
-                        className="w-full rounded-xl bg-[#1aef4d] py-3 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.99]"
+                        disabled={busy || usd < 1}
+                        onClick={() => void confirmDeposit()}
+                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black transition hover:bg-neutral-200 enabled:active:scale-[0.99] disabled:opacity-40"
                       >
-                        Review withdrawal
+                        {busy ? "Crediting…" : "Confirm deposit"}
                       </button>
                       <p className="text-center text-[11px] text-zinc-500">
-                        Double-check the network and address before confirming.
+                        After you send crypto, confirm to credit your UnoX balance.
                       </p>
-                    </div>
-                  ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <Field label="Your wallet address">
+                        <input
+                          value={destAddress}
+                          onChange={(e) => setDestAddress(e.target.value)}
+                          placeholder={`${asset.symbol} address`}
+                          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 font-mono text-xs text-white outline-none focus:border-white/30"
+                        />
+                      </Field>
 
-                  {tab === "Tip" ? (
-                    <TipPanel
-                      tipUser={tipUser}
-                      setTipUser={setTipUser}
-                      tipAmount={tipAmount}
-                      setTipAmount={setTipAmount}
-                      tipSent={tipSent}
-                      setTipSent={setTipSent}
-                      onSend={() => {
-                        if (!tipUser.trim() || !(Number(tipAmount) > 0)) return;
-                        setTipSent(true);
-                      }}
-                    />
-                  ) : null}
+                      <Field label="Withdraw amount (USD)">
+                        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5">
+                          <span className="text-zinc-500">$</span>
+                          <input
+                            value={usdAmount}
+                            onChange={(e) => setUsdAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                            className="w-full bg-transparent text-sm font-semibold text-white outline-none"
+                            inputMode="decimal"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setUsdAmount(String(balance))}
+                            className="rounded-md bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white"
+                          >
+                            Max
+                          </button>
+                        </div>
+                      </Field>
 
-                  {tab === "Buy Crypto" ? (
-                    <div className="space-y-4 py-2 text-center">
-                      <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-                        <CryptoLogo id="BTC" size={36} />
-                      </div>
-                      <h3 className="font-display text-xl text-white">Buy crypto</h3>
-                      <p className="mx-auto max-w-xs text-sm text-zinc-400">
-                        Purchase SOL, BTC, ETH, and more with card or bank — coming soon.
+                      <p className="text-[12px] text-zinc-500">
+                        Available {formatUsd(balance)}. Funds leave your site balance and go to the address above.
                       </p>
+
                       <button
                         type="button"
-                        disabled
-                        className="w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-zinc-400"
+                        disabled={busy || usd < 1 || !destAddress.trim() || usd > balance}
+                        onClick={() => void confirmWithdraw()}
+                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black transition hover:bg-neutral-200 enabled:active:scale-[0.99] disabled:opacity-40"
                       >
-                        Coming soon
+                        {busy ? "Sending…" : "Withdraw to wallet"}
                       </button>
-                    </div>
-                  ) : null}
+                    </>
+                  )}
+
+                  {error ? <p className="text-center text-sm text-red-400">{error}</p> : null}
+                  {success ? <p className="text-center text-sm text-white">{success}</p> : null}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -373,7 +466,7 @@ function AssetSelect({
                 type="button"
                 onClick={() => onPick(a.id)}
                 className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition ${
-                  a.id === asset.id ? "bg-[#1aef4d]/12" : "hover:bg-white/5"
+                  a.id === asset.id ? "bg-white/10" : "hover:bg-white/5"
                 }`}
               >
                 <CryptoLogo id={a.id} size={26} />
@@ -387,215 +480,6 @@ function AssetSelect({
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </div>
-  );
-}
-
-function DepositPanel({
-  asset,
-  assetId,
-  pickerOpen,
-  setPickerOpen,
-  onPick,
-  amount,
-  setAmount,
-  usdRate,
-  usdValue,
-  copied,
-  onCopy,
-}: {
-  asset: WalletAsset;
-  assetId: WalletAssetId;
-  pickerOpen: boolean;
-  setPickerOpen: (v: boolean) => void;
-  onPick: (id: WalletAssetId) => void;
-  amount: string;
-  setAmount: (v: string) => void;
-  usdRate: number;
-  usdValue: number;
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <AssetSelect asset={asset} open={pickerOpen} setOpen={setPickerOpen} onPick={onPick} />
-
-      <motion.div
-        key={assetId}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative mx-auto w-fit overflow-hidden rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={qrCodeUrl(asset.address, 168)}
-          alt={`${asset.symbol} deposit QR`}
-          width={168}
-          height={168}
-          className="block"
-        />
-        <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
-          <CryptoLogo id={asset.id} size={28} />
-        </span>
-      </motion.div>
-
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-black/35">
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-200 sm:text-xs">
-            {asset.address}
-          </p>
-          <motion.button
-            type="button"
-            onClick={onCopy}
-            whileTap={{ scale: 0.95 }}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-              copied ? "bg-white text-black" : "bg-[#1aef4d] text-black hover:brightness-110"
-            }`}
-          >
-            {copied ? "Copied" : "Copy"}
-          </motion.button>
-        </div>
-      </div>
-
-      <p className="text-center text-[12px] leading-relaxed text-zinc-400">
-        Send only <span className="font-semibold text-white">{asset.symbol}</span> on{" "}
-        <span className="font-semibold text-white">{asset.network}</span> to this address.
-      </p>
-
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-        <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-          <span>Conversion rate</span>
-          <span className="normal-case tracking-normal text-zinc-300">
-            1 {asset.symbol} ≈ {usdRate ? formatUsd(usdRate) : "—"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2.5">
-            <CryptoLogo id={asset.id} size={20} />
-            <input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-              className="w-full bg-transparent text-sm font-semibold text-white outline-none"
-              inputMode="decimal"
-            />
-            <span className="text-xs text-zinc-500">{asset.symbol}</span>
-          </div>
-          <span className="text-zinc-600">≈</span>
-          <div className="flex min-w-[7.5rem] items-center justify-end rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm font-semibold text-white">
-            {usdRate ? formatUsd(usdValue) : "—"}
-          </div>
-        </div>
-        {usdRate ? (
-          <p className="mt-2 text-[11px] text-zinc-500">
-            Live rate · 1 {asset.symbol} = ${formatRate(usdRate)}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function TipPanel({
-  tipUser,
-  setTipUser,
-  tipAmount,
-  setTipAmount,
-  tipSent,
-  setTipSent,
-  onSend,
-}: {
-  tipUser: string;
-  setTipUser: (v: string) => void;
-  tipAmount: string;
-  setTipAmount: (v: string) => void;
-  tipSent: boolean;
-  setTipSent: (v: boolean) => void;
-  onSend: () => void;
-}) {
-  if (tipSent) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="space-y-4 py-6 text-center"
-      >
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#1aef4d]/15 ring-1 ring-[#1aef4d]/40">
-          <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#1aef4d]" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M5 12l5 5L20 7" />
-          </svg>
-        </div>
-        <h3 className="font-display text-xl text-white">Tip queued</h3>
-        <p className="text-sm text-zinc-400">
-          ${tipAmount} tip for <span className="text-white">{tipUser}</span> is ready once balances go live.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setTipSent(false);
-            setTipUser("");
-          }}
-          className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15"
-        >
-          Send another
-        </button>
-      </motion.div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[#1aef4d]/25 bg-[#1aef4d]/8 p-3.5">
-        <p className="text-sm font-semibold text-[#1aef4d]">Tip a player</p>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-          Send chips to friends after a clutch win — username or friend code works.
-        </p>
-      </div>
-
-      <Field label="Player">
-        <input
-          value={tipUser}
-          onChange={(e) => setTipUser(e.target.value)}
-          placeholder="Username or friend code"
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#1aef4d]/50"
-        />
-      </Field>
-
-      <Field label="Amount (USD)">
-        <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5">
-            <span className="text-zinc-500">$</span>
-            <input
-              value={tipAmount}
-              onChange={(e) => setTipAmount(e.target.value.replace(/[^\d.]/g, ""))}
-              className="w-full bg-transparent text-sm font-semibold text-white outline-none"
-              inputMode="decimal"
-            />
-          </div>
-          {["5", "10", "25", "50"].map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => setTipAmount(preset)}
-              className={`rounded-lg px-2.5 py-2.5 text-xs font-bold transition ${
-                tipAmount === preset
-                  ? "bg-[#1aef4d] text-black"
-                  : "bg-white/5 text-zinc-300 hover:bg-white/10"
-              }`}
-            >
-              ${preset}
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      <button
-        type="button"
-        onClick={onSend}
-        disabled={!tipUser.trim() || !(Number(tipAmount) > 0)}
-        className="w-full rounded-xl bg-[#1aef4d] py-3 text-sm font-bold text-black transition hover:brightness-110 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Send tip
-      </button>
     </div>
   );
 }

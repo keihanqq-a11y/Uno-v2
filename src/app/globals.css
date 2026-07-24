@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0a;
-  --bg-secondary: #111111;
-  --card: #181818;
-  --border: #2b2b2b;
-  --gold: #d4af37;
-  --gold-dim: #a6862a;
-  --gold-soft: rgba(212, 175, 55, 0.12);
-  --text: #ffffff;
-  --text-secondary: #a0a0a0;
-  --danger: #c45c5c;
-  --success: #5c9e6e;
+  --bg: #050505;
+  --bg-secondary: #0c0c0c;
+  --card: #121212;
+  --border: #262626;
+  --gold: #f5f5f5;
+  --gold-dim: #a3a3a3;
+  --gold-soft: rgba(255, 255, 255, 0.08);
+  --accent: #ffffff;
+  --accent-muted: #d4d4d4;
+  --text: #fafafa;
+  --text-secondary: #8a8a8a;
+  --danger: #ef4444;
+  --success: #22c55e;
   --uno-red: #c62828;
   --uno-yellow: #f9a825;
   --uno-green: #2e7d32;
@@ -25,6 +27,7 @@
   --color-border: var(--border);
   --color-gold: var(--gold);
   --color-gold-dim: var(--gold-dim);
+  --color-accent: var(--accent);
   --color-text: var(--text);
   --color-muted: var(--text-secondary);
   --color-danger: var(--danger);
@@ -50,8 +53,8 @@ body {
 }
 
 ::selection {
-  background: var(--gold);
-  color: var(--bg);
+  background: #fff;
+  color: #000;
 }
 
 a {
@@ -59,18 +62,23 @@ a {
   text-decoration: none;
 }
 
-/* Subtle atmospheric background */
 .atmosphere {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 175, 55, 0.08), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(212, 175, 55, 0.04), transparent 50%),
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 90%, rgba(255, 255, 255, 0.03), transparent 50%),
     var(--bg);
+}
+
+.unox-hero {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 35%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, #070707 0%, #050505 55%, #030303 100%);
 }
 
 .gold-rule {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  opacity: 0.5;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  opacity: 0.7;
 }
 
 @keyframes fade-up {
@@ -87,10 +95,10 @@ a {
 @keyframes pulse-gold {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.35);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.25);
   }
   50% {
-    box-shadow: 0 0 0 12px rgba(212, 175, 55, 0);
+    box-shadow: 0 0 0 12px rgba(255, 255, 255, 0);
   }
 }
 
@@ -133,6 +141,16 @@ a {
   }
 }
 
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
 .animate-fade-up {
   animation: fade-up 0.55s ease-out both;
 }
@@ -153,7 +171,10 @@ a {
   animation: shake 0.4s ease-in-out;
 }
 
-/* Custom scrollbar */
+.animate-float {
+  animation: float-soft 5s ease-in-out infinite;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -166,5 +187,5 @@ a {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold-dim);
+  background: #404040;
 }

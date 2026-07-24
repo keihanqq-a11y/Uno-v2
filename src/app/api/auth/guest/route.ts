@@ -42,13 +42,17 @@ export async function POST() {
         level: true,
         xp: true,
         emailVerified: true,
+        balanceUsd: true,
       },
     });
 
     const token = await createSession(user.id);
     await setSessionCookie(token);
 
-    return NextResponse.json({ user, guest: true });
+    return NextResponse.json({
+      user: { ...user, balanceUsd: user.balanceUsd ?? 0 },
+      guest: true,
+    });
   } catch (err) {
     console.error("[guest]", err);
     return NextResponse.json(

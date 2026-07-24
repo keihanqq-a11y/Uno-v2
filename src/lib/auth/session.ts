@@ -30,6 +30,7 @@ export interface AuthUser {
   level: number;
   xp: number;
   emailVerified: boolean;
+  balanceUsd: number;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -132,6 +133,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
           xp: true,
           emailVerified: true,
           isBanned: true,
+          balanceUsd: true,
         },
       },
     },
@@ -154,6 +156,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     level: session.user.level,
     xp: session.user.xp,
     emailVerified: session.user.emailVerified,
+    balanceUsd: Math.round(session.user.balanceUsd * 100) / 100,
   };
 }
 

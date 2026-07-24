@@ -8,11 +8,7 @@ import { WalletBar } from "@/components/wallet/WalletBar";
 
 const links = [
   { href: "/play", label: "Play" },
-  { href: "/dashboard", label: "Home" },
-  { href: "/friends", label: "Friends" },
   { href: "/leaderboard", label: "Ranks" },
-  { href: "/history", label: "History" },
-  { href: "/rewards", label: "Rewards" },
 ];
 
 export function AppNav() {
@@ -20,13 +16,12 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-[#0A0A0A]/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-white/8 bg-black/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-        <Link href="/play" className="group flex shrink-0 items-baseline gap-2">
-          <span className="font-display text-2xl tracking-[0.12em] text-gold transition-colors group-hover:text-[#e0c04a]">
-            UNO
+        <Link href="/play" className="group flex shrink-0 items-center gap-2">
+          <span className="font-display text-2xl font-extrabold tracking-tight text-white transition group-hover:text-neutral-200">
+            UnoX
           </span>
-          <span className="text-[10px] uppercase tracking-[0.28em] text-muted">Premium</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -35,8 +30,8 @@ export function AppNav() {
               key={l.href}
               href={l.href}
               className={cn(
-                "rounded-md px-3 py-2 text-sm transition-colors",
-                pathname.startsWith(l.href) ? "text-gold" : "text-muted hover:text-text",
+                "rounded-lg px-3 py-2 text-sm transition-colors",
+                pathname.startsWith(l.href) ? "text-white" : "text-muted hover:text-white",
               )}
             >
               {l.label}
@@ -46,8 +41,8 @@ export function AppNav() {
             <Link
               href="/admin"
               className={cn(
-                "rounded-md px-3 py-2 text-sm",
-                pathname.startsWith("/admin") ? "text-gold" : "text-muted hover:text-text",
+                "rounded-lg px-3 py-2 text-sm",
+                pathname.startsWith("/admin") ? "text-white" : "text-muted hover:text-white",
               )}
             >
               Admin
@@ -60,7 +55,7 @@ export function AppNav() {
           {!loading && user && (
             <Link
               href={`/profile/${user.username}`}
-              className="hidden h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-[#181818] text-xs font-semibold text-gold sm:flex"
+              className="hidden h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#141414] text-xs font-semibold text-white sm:flex"
               title={user.displayName}
             >
               {user.avatarUrl ? (

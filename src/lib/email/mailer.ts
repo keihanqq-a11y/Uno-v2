@@ -14,7 +14,7 @@ function getTransport() {
   });
 }
 
-const from = process.env.SMTP_FROM ?? "UNO Premium <noreply@uno.local>";
+const from = process.env.SMTP_FROM ?? "UnoX <noreply@unox.local>";
 const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 
 async function sendMail(to: string, subject: string, html: string) {

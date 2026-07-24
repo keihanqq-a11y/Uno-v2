@@ -12,6 +12,7 @@ export interface User {
   level: number;
   xp: number;
   emailVerified: boolean;
+  balanceUsd: number;
 }
 
 interface AuthContextValue {
@@ -19,6 +20,7 @@ interface AuthContextValue {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  setBalance: (balanceUsd: number) => void;
   logout: () => Promise<void>;
 }
 
@@ -49,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const next = await ensureGuest();
-      setUser(next);
+      setUser({ ...next, balanceUsd: Number(next.balanceUsd) || 0 });
     } catch (e) {
       setUser(null);
       setError(e instanceof Error ? e.message : "Failed to start");
@@ -62,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, []);
 
+  const setBalance = (balanceUsd: number) => {
+    setUser((prev) => (prev ? { ...prev, balanceUsd } : prev));
+  };
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setLoading(true);
@@ -70,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, refresh, logout }}>
+    <AuthContext.Provider value={{ user, loading, error, refresh, setBalance, logout }}>
       {children}
     </AuthContext.Provider>
   );

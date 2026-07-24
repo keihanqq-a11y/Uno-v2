@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         level: true,
         xp: true,
         emailVerified: true,
+        balanceUsd: true,
       },
     });
 
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
       data: { type: "user_register", userId: user.id },
     });
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: { ...user, balanceUsd: user.balanceUsd ?? 0 } });
   } catch (err) {
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

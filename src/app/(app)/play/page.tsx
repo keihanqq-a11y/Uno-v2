@@ -2,12 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useSocket } from "@/hooks/useSocket";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
-import { Panel } from "@/components/ui/Panel";
 import { openWallet } from "@/components/wallet/WalletBar";
 
 export default function PlayPage() {
@@ -21,7 +20,11 @@ export default function PlayPage() {
   const [queueing, setQueueing] = useState(false);
   const [botCount, setBotCount] = useState(3);
   const [startingBots, setStartingBots] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const balance = user?.balanceUsd ?? 0;
+  const canPlay = balance > 0;
 
   useEffect(() => {
     if (!loading && !user) router.refresh();
@@ -39,7 +42,15 @@ export default function PlayPage() {
     };
   }, [socket, router]);
 
+  const requireFunds = () => {
+    if (canPlay) return true;
+    setError("Deposit funds to play.");
+    openWallet("Deposit");
+    return false;
+  };
+
   const createLobby = async () => {
+    if (!requireFunds()) return;
     setError(null);
     const res = await emit<{ ok: boolean; lobby?: { code: string }; error?: string }>(
       "lobby:create",
@@ -54,6 +65,7 @@ export default function PlayPage() {
 
   const joinLobby = async (e: FormEvent) => {
     e.preventDefault();
+    if (!requireFunds()) return;
     setError(null);
     const res = await emit<{ ok: boolean; lobby?: { code: string }; error?: string }>(
       "lobby:join",
@@ -67,6 +79,7 @@ export default function PlayPage() {
   };
 
   const joinQueue = async () => {
+    if (!requireFunds()) return;
     setQueueing(true);
     setError(null);
     const res = await emit<{ ok: boolean; matched?: boolean; code?: string; error?: string }>(
@@ -85,6 +98,7 @@ export default function PlayPage() {
   };
 
   const playVsBots = async () => {
+    if (!requireFunds()) return;
     setError(null);
     setStartingBots(true);
     const res = await emit<{ ok: boolean; gameId?: string; error?: string }>("play:vs_bots", {
@@ -107,13 +121,8 @@ export default function PlayPage() {
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-danger">{authError ?? "Could not start a guest session."}</p>
         <p className="mt-3 text-sm text-muted">
-          In PowerShell, from the project folder run:
-          <br />
-          <code className="text-gold">npx prisma db push</code>
-          <br />
-          <code className="text-gold">npm run db:seed</code>
-          <br />
-          then <code className="text-gold">npm run dev</code> again.
+          Run <code className="text-white">npx prisma db push</code> then{" "}
+          <code className="text-white">npm run setup</code> and restart.
         </p>
         <Button className="mt-6" onClick={() => void refresh()}>
           Try again
@@ -123,162 +132,235 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 animate-fade-up">
-      <p className="text-[10px] uppercase tracking-[0.28em] text-muted">Play</p>
-      <h1 className="mt-2 font-display text-4xl text-gold">Choose your table</h1>
-      <p className="mt-2 text-sm text-muted">
-        Socket {connected ? "connected" : "connecting…"} · 2–5 players
-      </p>
-      {socketError && (
-        <p className="mt-2 text-sm text-danger">
-          {socketError} — stop the server (Ctrl+C) and run <code className="text-gold">npm run dev</code>
-        </p>
-      )}
-
-      <Panel className="mt-8 border-gold/30 p-6">
-        <h2 className="text-lg text-gold">Play vs bots</h2>
-        <p className="mt-1 text-sm text-muted">
-          Instant solo match — bots play automatically.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="text-xs uppercase tracking-wider text-muted">Bots</span>
-          {[1, 2, 3, 4].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setBotCount(n)}
-              className={`h-10 w-10 rounded-md border text-sm ${
-                botCount === n ? "border-gold text-gold" : "border-border text-muted"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-          <Button
-            className="ml-auto"
-            onClick={() => void playVsBots()}
-            disabled={!connected || startingBots}
-          >
-            {startingBots ? "Starting…" : "Start vs bots"}
-          </Button>
-        </div>
-      </Panel>
-
-      <Panel className="mt-6 overflow-hidden border-[#1aef4d]/25 bg-gradient-to-r from-[#1aef4d]/10 via-transparent to-transparent p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg text-[#1aef4d]">Tip a player</h2>
-            <p className="mt-1 text-sm text-muted">
-              Send chips to friends after a clutch win — opens in your wallet.
-            </p>
-          </div>
-          <Button
-            type="button"
-            className="shrink-0 bg-[#1aef4d] text-black hover:brightness-110"
-            onClick={() => openWallet("Tip")}
-          >
-            Open tip
-          </Button>
-        </div>
-      </Panel>
-
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
-        <Panel className="p-6">
-          <h2 className="text-lg">Create lobby</h2>
-          <div className="mt-5 space-y-4">
-            <div>
-              <Label>Players</Label>
-              <div className="flex gap-2">
-                {[2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setMaxPlayers(n)}
-                    className={`h-10 w-10 rounded-md border text-sm ${
-                      maxPlayers === n
-                        ? "border-gold text-gold"
-                        : "border-border text-muted hover:border-gold/40"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Mode</Label>
-              <div className="flex gap-2">
-                {(["PRIVATE", "PUBLIC"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    className={`h-10 flex-1 rounded-md border text-xs tracking-wider ${
-                      mode === m
-                        ? "border-gold text-gold"
-                        : "border-border text-muted"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Button className="w-full" onClick={() => void createLobby()} disabled={!connected}>
-              Create
-            </Button>
-          </div>
-        </Panel>
-
-        <Panel className="p-6">
-          <h2 className="text-lg">Join with code</h2>
-          <form onSubmit={joinLobby} className="mt-5 space-y-4">
-            <div>
-              <Label htmlFor="code">Lobby code</Label>
-              <Input
-                id="code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="ABC123"
-                maxLength={6}
-                className="tracking-[0.3em] uppercase"
-              />
-            </div>
-            <Button type="submit" variant="secondary" className="w-full" disabled={!connected}>
-              Join lobby
-            </Button>
-          </form>
-
-          <div className="gold-rule my-8" />
-
-          <h2 className="text-lg">Public matchmaking</h2>
-          <div className="mt-4 flex gap-2">
-            {[2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setQueueSize(n)}
-                className={`h-9 w-9 rounded-md border text-sm ${
-                  queueSize === n ? "border-gold text-gold" : "border-border text-muted"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          {!queueing ? (
-            <Button className="mt-4 w-full" onClick={() => void joinQueue()} disabled={!connected}>
-              Find match
-            </Button>
-          ) : (
-            <Button className="mt-4 w-full" variant="danger" onClick={() => void leaveQueue()}>
-              Cancel queue
-            </Button>
-          )}
-        </Panel>
+    <div className="unox-hero relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12]">
+        <div className="absolute left-[8%] top-[22%] h-28 w-20 rotate-[-18deg] rounded-xl border border-white/20 bg-white/5 blur-[1px]" />
+        <div className="absolute right-[12%] top-[30%] h-32 w-22 rotate-[14deg] rounded-xl border border-white/15 bg-white/[0.04]" />
+        <div className="absolute bottom-[28%] left-[18%] h-24 w-16 rotate-[8deg] rounded-xl border border-white/10 bg-white/[0.03]" />
       </div>
 
-      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col px-4 pb-8 pt-10 sm:pt-16">
+        <motion.div
+          className="flex flex-1 flex-col items-center justify-center text-center"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+        >
+          <div className="mb-5 flex items-end gap-3 text-white/70 sm:gap-4">
+            <span className="text-lg opacity-45">♦</span>
+            <span className="text-lg opacity-45">♣</span>
+            <span className="animate-float text-3xl text-white">♠</span>
+            <span className="text-lg opacity-45">♥</span>
+            <span className="text-lg opacity-45">♦</span>
+          </div>
+
+          <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
+            Become the table
+          </h1>
+          <p className="mt-4 max-w-md text-sm text-zinc-400 sm:text-base">
+            Host your own <span className="font-semibold text-white">UNO lobbies</span> and have your
+            friends play against you.
+          </p>
+
+          {!canPlay && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-300"
+            >
+              Balance is <span className="font-semibold text-white">$0.00</span> — deposit to play.
+              <button
+                type="button"
+                onClick={() => openWallet("Deposit")}
+                className="ml-2 font-semibold text-white underline underline-offset-2 hover:text-zinc-200"
+              >
+                Deposit now
+              </button>
+            </motion.div>
+          )}
+
+          <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row">
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl"
+              onClick={() => void createLobby()}
+              disabled={!connected}
+            >
+              <PlusLobbyIcon />
+              Create Lobby
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="flex-1 rounded-2xl"
+              onClick={() => setJoinOpen((v) => !v)}
+              disabled={!connected}
+            >
+              Join Lobby
+            </Button>
+          </div>
+
+          {joinOpen && (
+            <motion.form
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              onSubmit={joinLobby}
+              className="mt-4 flex w-full max-w-md gap-2"
+            >
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="LOBBY CODE"
+                maxLength={6}
+                className="tracking-[0.28em] uppercase"
+              />
+              <Button type="submit" disabled={!connected}>
+                Join
+              </Button>
+            </motion.form>
+          )}
+
+          {socketError && (
+            <p className="mt-4 text-sm text-danger">
+              {socketError} — run <code className="text-white">npm run dev</code>
+            </p>
+          )}
+          {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d]/90"
+        >
+          <div className="grid grid-cols-2 gap-px bg-white/10 sm:grid-cols-3 lg:grid-cols-6">
+            <MetaCell label="Players" value={`${maxPlayers}`} />
+            <MetaCell label="Lobby" value={mode === "PRIVATE" ? "Private" : "Public"} />
+            <MetaCell label="Bankroll" value={`$${balance.toFixed(0)}`} active />
+            <MetaCell label="Bots" value={`${botCount}`} />
+            <MetaCell label="Queue" value={`${queueSize}p`} />
+            <MetaCell label="Socket" value={connected ? "Live" : "…"} />
+          </div>
+
+          <div className="grid gap-6 border-t border-white/10 p-5 md:grid-cols-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Lobby settings
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[2, 3, 4, 5].map((n) => (
+                  <Chip key={n} active={maxPlayers === n} onClick={() => setMaxPlayers(n)}>
+                    {n}
+                  </Chip>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                {(["PRIVATE", "PUBLIC"] as const).map((m) => (
+                  <Chip key={m} active={mode === m} onClick={() => setMode(m)}>
+                    {m}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Quick play
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Bots</span>
+                {[1, 2, 3, 4].map((n) => (
+                  <Chip key={n} active={botCount === n} onClick={() => setBotCount(n)}>
+                    {n}
+                  </Chip>
+                ))}
+                <Button
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => void playVsBots()}
+                  disabled={!connected || startingBots}
+                >
+                  {startingBots ? "Starting…" : "Vs bots"}
+                </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Match</span>
+                {[2, 3, 4, 5].map((n) => (
+                  <Chip key={n} active={queueSize === n} onClick={() => setQueueSize(n)}>
+                    {n}
+                  </Chip>
+                ))}
+                {!queueing ? (
+                  <Button size="sm" variant="secondary" className="ml-auto" onClick={() => void joinQueue()} disabled={!connected}>
+                    Find match
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="danger" className="ml-auto" onClick={() => void leaveQueue()}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </div>
+  );
+}
+
+function PlusLobbyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M12 10v4M10 12h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MetaCell({
+  label,
+  value,
+  active,
+}: {
+  label: string;
+  value: string;
+  active?: boolean;
+}) {
+  return (
+    <div className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-white" : "text-zinc-400"}`}>
+      <p className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-white" : "text-zinc-500"}`}>
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-9 min-w-9 rounded-lg border px-3 text-xs font-semibold transition ${
+        active
+          ? "border-white bg-white text-black"
+          : "border-white/15 text-zinc-400 hover:border-white/30 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
