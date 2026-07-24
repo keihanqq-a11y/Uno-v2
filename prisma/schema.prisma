@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum GameMode {
+  PRIVATE
+  PUBLIC
+}
+
+enum GameStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  ABANDONED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  ACTIONED
+  DISMISSED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String
+  displayName       String
+  avatarUrl         String?
+  bio               String?   @db.VarChar(280)
+  role              Role      @default(USER)
+  emailVerified     Boolean   @default(false)
+  emailVerifyToken  String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  level             Int       @default(1)
+  xp                Int       @default(0)
+  wins              Int       @default(0)
+  losses            Int       @default(0)
+  gamesPlayed       Int       @default(0)
+  totalScore        Int       @default(0)
+  lastLoginAt       DateTime?
+  lastDailyRewardAt DateTime?
+  loginStreak       Int       @default(0)
+  isBanned          Boolean   @default(false)
+  banReason         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions       Session[]
+  friendshipsA   Friendship[]      @relation("FriendshipA")
+  friendshipsB   Friendship[]      @relation("FriendshipB")
+  gamePlayers    GamePlayer[]
+  matchHistory   MatchHistory[]
+  achievements   UserAchievement[]
+  badges         UserBadge[]
+  reportsFiled   Report[]          @relation("Reporter")
+  reportsAgainst Report[]          @relation("Reported")
+  tickets        SupportTicket[]
+  ticketMessages TicketMessage[]
+  chatMessages   ChatMessage[]
+  notifications  Notification[]
+
+  @@index([wins])
+  @@index([xp])
+  @@index([level])
+  @@index([gamesPlayed])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Friendship {
+  id        String           @id @default(cuid())
+  userAId   String
+  userBId   String
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  userA User @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId, status])
+}
+
+model Lobby {
+  id           String     @id @default(cuid())
+  code         String     @unique
+  hostId       String
+  mode         GameMode   @default(PRIVATE)
+  maxPlayers   Int        @default(4)
+  status       GameStatus @default(WAITING)
+  isSpectators Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  games        Game[]
+
+  @@index([status, mode])
+}
+
+model Game {
+  id             String     @id @default(cuid())
+  lobbyId        String?
+  status         GameStatus @default(WAITING)
+  playerCount    Int
+  winnerId       String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  turnTimerSec   Int        @default(30)
+  missedUnoPenalty Int      @default(2)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  lobby        Lobby?         @relation(fields: [lobbyId], references: [id])
+  players      GamePlayer[]
+  matchHistory MatchHistory[]
+  chatMessages ChatMessage[]
+
+  @@index([status])
+  @@index([winnerId])
+}
+
+model GamePlayer {
+  id           String    @id @default(cuid())
+  gameId       String
+  userId       String
+  seat         Int
+  isSpectator  Boolean   @default(false)
+  isConnected  Boolean   @default(true)
+  finalCards   Int?
+  placement    Int?
+  scoreGained  Int       @default(0)
+  xpGained     Int       @default(0)
+  joinedAt     DateTime  @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, userId])
+  @@unique([gameId, seat])
+  @@index([userId])
+}
+
+model MatchHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  gameId      String
+  won         Boolean
+  placement   Int
+  playerCount Int
+  cardsLeft   Int
+  xpEarned    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([gameId])
+}
+
+model Achievement {
+  id          String             @id @default(cuid())
+  key         String             @unique
+  name        String
+  description String
+  xpReward    Int                @default(50)
+  icon        String             @default("trophy")
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  name        String
+  description String
+  color       String      @default("#D4AF37")
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  gameId    String?
+  lobbyId   String?
+  userId    String?
+  content   String
+  isSystem  Boolean  @default(false)
+  isEmoji   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  game Game? @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([gameId, createdAt])
+  @@index([lobbyId, createdAt])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reportedId String
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model SupportTicket {
+  id        String       @id @default(cuid())
+  userId    String
+  subject   String
+  status    TicketStatus @default(OPEN)
+  priority  Int          @default(1)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([status])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  content   String
+  isStaff   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  href      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+}
+
+model ModeratedMessage {
+  id        String   @id @default(cuid())
+  messageId String
+  content   String
+  reason    String
+  action    String
+  staffId   String
+  createdAt DateTime @default(now())
+}
