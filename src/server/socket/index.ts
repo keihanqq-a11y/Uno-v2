@@ -512,6 +512,36 @@ export function initSocketServer(httpServer: HttpServer) {
       cb?.({ ok: true });
     });
 
+    socket.on("game:sync", (payload, cb) => {
+      const requestedId = String(payload?.gameId ?? socket.data.gameId ?? "");
+      if (!requestedId) return cb?.({ ok: false, error: "Missing game id" });
+
+      const managed = games.getGame(requestedId) ?? games.getGameByUser(user.id);
+      if (!managed) return cb?.({ ok: false, error: "Game not found — start a new match" });
+
+      const gameId = managed.state.id;
+      socket.data.gameId = gameId;
+      socket.join(gameRoom(gameId));
+      games.reconnectPlayer(gameId, user.id);
+
+      if (managed.state.lobbyId) {
+        socket.data.lobbyId = managed.state.lobbyId;
+        socket.join(lobbyRoom(managed.state.lobbyId));
+      }
+
+      const lobby = managed.state.lobbyId
+        ? lobbies.getLobby(managed.state.lobbyId)
+        : null;
+
+      const view = games.viewFor(gameId, user.id);
+      socket.emit("game:state", view);
+      cb?.({
+        ok: true,
+        game: view,
+        lobbyCode: lobby?.code ?? null,
+      });
+    });
+
     socket.on("game:play", (payload, cb) => {
       const gameId = socket.data.gameId;
       if (!gameId) return cb?.({ ok: false, error: "Not in a game" });

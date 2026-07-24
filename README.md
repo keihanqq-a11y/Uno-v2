@@ -1,37 +1,40 @@
 # UNO Premium
 
-Multiplayer UNO — works with **only Node.js**. No Docker, Postgres, or Redis needed.
+Works with **only Node.js**. No Docker / Postgres / Redis.
 
-## Windows (easiest)
+## Windows — fix & play
 
-1. Install Node.js LTS from https://nodejs.org
-2. Open PowerShell:
+Open PowerShell in the project folder:
 
 ```powershell
-cd $HOME\Desktop
-git clone https://github.com/keihanqq-a11y/Uno-v2.git
-cd Uno-v2
-git checkout cursor/multiplayer-uno-9614
+# Stop old server first: Ctrl+C
 
+cd $HOME\Desktop\Uno-v2
+git pull
 npm install
-Copy-Item .env.example .env
-npx prisma db push
-npm run db:seed
+npm run setup
 npm run dev
 ```
 
-3. Open http://localhost:3000/play  
-   No login — you join as a guest automatically.
+Open: **http://localhost:3000/play**
 
-## Stack
+Click **Start vs bots**.
 
-- Next.js + TypeScript + Tailwind
-- Socket.IO (custom server)
-- Prisma + **SQLite** (local file database)
-- In-memory matchmaking (no Redis)
+You must use `npm run dev` (not `next dev`) so multiplayer/sockets work.
 
-## Scripts
+## If it says loading / waiting forever
 
-- `npm run dev` — start app
-- `npm test` — game engine tests
-- `npm run db:seed` — seed demo data
+```powershell
+Ctrl+C
+npm run setup
+npm run dev
+```
+
+Then hard-refresh the browser: `Ctrl+Shift+R`
+
+## Features
+
+- Guest play (no login)
+- Play vs bots (1–4)
+- Private lobbies + Add bot
+- Server-authoritative UNO engine

@@ -12,7 +12,7 @@ import { Panel } from "@/components/ui/Panel";
 export default function PlayPage() {
   const { user, loading, error: authError, refresh } = useAuth();
   const router = useRouter();
-  const { connected, emit, socket } = useSocket();
+  const { connected, emit, socket, socketError } = useSocket();
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [mode, setMode] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
   const [code, setCode] = useState("");
@@ -128,6 +128,11 @@ export default function PlayPage() {
       <p className="mt-2 text-sm text-muted">
         Socket {connected ? "connected" : "connecting…"} · 2–5 players
       </p>
+      {socketError && (
+        <p className="mt-2 text-sm text-danger">
+          {socketError} — stop the server (Ctrl+C) and run <code className="text-gold">npm run dev</code>
+        </p>
+      )}
 
       <Panel className="mt-8 border-gold/30 p-6">
         <h2 className="text-lg text-gold">Play vs bots</h2>
