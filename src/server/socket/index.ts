@@ -118,6 +118,8 @@ async function persistGameResults(gameId: string) {
 
   for (const p of sorted) {
     const placement = sorted.findIndex((x) => x.id === p.id) + 1;
+    const lobby =
+      g.state.lobbyId != null ? lobbies.getLobby(g.state.lobbyId) : null;
     await recordMatchResult({
       userId: p.userId,
       gameId: dbGame.id,
@@ -125,6 +127,8 @@ async function persistGameResults(gameId: string) {
       placement,
       playerCount: g.state.players.length,
       cardsLeft: p.hand.length,
+      lobbyCode: lobby?.code ?? null,
+      stakeUsd: 0,
     });
   }
 

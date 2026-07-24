@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Non-interactive local setup (Windows-safe).
- * Creates SQLite .env, pushes schema, seeds data.
+ * Creates SQLite .env if missing, pushes schema, seeds reference data.
+ * Does NOT wipe your player accounts / balance / history.
  */
 const { execSync } = require("child_process");
 const fs = require("fs");
@@ -40,7 +41,6 @@ function run(cmd) {
     stdio: "inherit",
     env: {
       ...process.env,
-      // Prevent Prisma from waiting on prompts / telemetrics
       PRISMA_HIDE_UPDATE_MESSAGE: "1",
       CHECKPOINT_DISABLE: "1",
     },
@@ -49,25 +49,27 @@ function run(cmd) {
 }
 
 try {
-  log("→ Writing .env for SQLite…");
-  fs.writeFileSync(envPath, sqliteEnv);
+  if (!fs.existsSync(envPath)) {
+    log("→ Writing .env for SQLite…");
+    fs.writeFileSync(envPath, sqliteEnv);
+  } else {
+    log("→ Keeping existing .env (your settings stay)");
+  }
 
-  // Remove old sqlite lock files if present
-  for (const f of ["dev.db", "dev.db-journal"]) {
-    const p = path.join(root, "prisma", f);
-    try {
-      if (fs.existsSync(p)) fs.unlinkSync(p);
-    } catch {
-      /* ignore */
-    }
+  // Keep prisma/dev.db — never delete player data on setup.
+  const dbPath = path.join(root, "prisma", "dev.db");
+  if (fs.existsSync(dbPath)) {
+    log("→ Existing database found — preserving accounts, balances, and history");
+  } else {
+    log("→ No database yet — creating a fresh one");
   }
 
   run("npx prisma generate");
-  // --accept-data-loss avoids interactive "y/N" prompts on Windows
-  run("npx prisma db push --accept-data-loss --skip-generate");
+  // Additive schema updates; do not wipe tables.
+  run("npx prisma db push --skip-generate");
   run("npx tsx scripts/seed.ts");
 
-  log("\n✅ Setup complete.");
+  log("\n✅ Setup complete. Your profile is kept across visits.");
   log("IMPORTANT: Stop any running npm run dev (Ctrl+C), then start fresh:");
   log("  npm run dev");
   log("Then open: http://localhost:3000/play\n");

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { Role } from "@prisma/client";
 
 const ACCESS_TTL = "15m";
-const REFRESH_TTL_DAYS = 30;
+const REFRESH_TTL_DAYS = 365;
 const COOKIE_NAME = "uno_session";
 
 function accessSecret() {

@@ -71,6 +71,8 @@ model User {
   banReason         String?
   /** Site balance in USD. Starts at 0 — deposit to play. */
   balanceUsd        Float     @default(0)
+  /** Stable reclaim key so guests keep the same account across visits. */
+  guestKey          String?   @unique
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -116,6 +118,7 @@ model WalletTransaction {
   assetSymbol     String?
   cryptoAmount    Float?
   address         String?
+  txSignature     String?
   note            String?
   balanceAfterUsd Float
   createdAt       DateTime        @default(now())
@@ -220,6 +223,8 @@ model MatchHistory {
   playerCount Int
   cardsLeft   Int
   xpEarned    Int      @default(0)
+  lobbyCode   String?
+  stakeUsd    Float    @default(0)
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

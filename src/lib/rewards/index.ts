@@ -91,6 +91,8 @@ export async function recordMatchResult(params: {
   placement: number;
   playerCount: number;
   cardsLeft: number;
+  lobbyCode?: string | null;
+  stakeUsd?: number;
 }) {
   const xpEarned = PLAY_XP + (params.won ? WIN_XP : LOSS_XP);
   await prisma.matchHistory.create({
@@ -102,6 +104,8 @@ export async function recordMatchResult(params: {
       playerCount: params.playerCount,
       cardsLeft: params.cardsLeft,
       xpEarned,
+      lobbyCode: params.lobbyCode ?? null,
+      stakeUsd: params.stakeUsd ?? 0,
     },
   });
 

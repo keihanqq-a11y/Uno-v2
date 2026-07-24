@@ -214,7 +214,8 @@ export function UnoCardView({
   const classes = cn(
     "relative overflow-hidden rounded-[0.9rem] border border-black/40 shadow-[0_12px_28px_rgba(0,0,0,0.45)]",
     sizes[size],
-    playable ? "opacity-100" : "opacity-45 saturate-[0.65]",
+    playable ? "opacity-100" : "opacity-90 brightness-90",
+    !playable && "grayscale-[0.15]",
     selected && "ring-2 ring-red-400 ring-offset-1 ring-offset-black",
     className,
   );

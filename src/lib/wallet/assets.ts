@@ -87,3 +87,33 @@ export function shortenAddress(address: string, left = 10, right = 8) {
   if (address.length <= left + right + 3) return address;
   return `${address.slice(0, left)}…${address.slice(-right)}`;
 }
+
+/** Block explorer links for wallet history. */
+export function explorerAccountUrl(assetId: string | null | undefined, address: string | null | undefined) {
+  if (!address) return null;
+  const id = (assetId ?? "").toUpperCase();
+  if (id === "SOL") return `https://solscan.io/account/${address}`;
+  if (id === "BTC") return `https://mempool.space/address/${address}`;
+  if (id === "LTC") return `https://litecoinspace.org/address/${address}`;
+  // ETH / USDT / USDC (ERC-20)
+  if (id === "ETH" || id === "USDT" || id === "USDC") {
+    return `https://etherscan.io/address/${address}`;
+  }
+  return null;
+}
+
+export function explorerTxUrl(assetId: string | null | undefined, signature: string | null | undefined) {
+  if (!signature) return null;
+  const id = (assetId ?? "").toUpperCase();
+  if (id === "SOL") return `https://solscan.io/tx/${signature}`;
+  if (id === "BTC") return `https://mempool.space/tx/${signature}`;
+  if (id === "LTC") return `https://litecoinspace.org/tx/${signature}`;
+  if (id === "ETH" || id === "USDT" || id === "USDC") {
+    return `https://etherscan.io/tx/${signature}`;
+  }
+  return null;
+}
+
+export function isSolanaAsset(assetId: string | null | undefined) {
+  return (assetId ?? "").toUpperCase() === "SOL";
+}

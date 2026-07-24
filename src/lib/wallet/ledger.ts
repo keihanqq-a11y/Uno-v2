@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/db/prisma";
 import { AuthError } from "@/lib/auth/session";
 import { getAsset, type WalletAssetId } from "@/lib/wallet/assets";
+import { nanoid } from "nanoid";
 
 const MIN_USD = 1;
 const MAX_USD = 100_000;
 
 function roundUsd(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+/** Demo chain reference for history / Solscan account pairing. */
+function makeTxRef(assetId: string) {
+  return `${assetId.toLowerCase()}_${nanoid(24)}`;
 }
 
 export async function getBalance(userId: string): Promise<number> {
@@ -23,7 +29,7 @@ export async function creditDeposit(input: {
   amountUsd: number;
   assetId: WalletAssetId;
   cryptoAmount: number;
-}): Promise<{ balanceUsd: number; txId: string }> {
+}): Promise<{ balanceUsd: number; txId: string; txSignature: string }> {
   const amountUsd = roundUsd(input.amountUsd);
   if (!Number.isFinite(amountUsd) || amountUsd < MIN_USD) {
     throw new AuthError(`Minimum deposit is $${MIN_USD}`, 400);
@@ -37,6 +43,8 @@ export async function creditDeposit(input: {
   if (!Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
     throw new AuthError("Invalid crypto amount", 400);
   }
+
+  const txSignature = makeTxRef(asset.id);
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
@@ -55,11 +63,12 @@ export async function creditDeposit(input: {
         assetSymbol: asset.symbol,
         cryptoAmount,
         address: asset.address,
+        txSignature,
         note: `Deposit ${cryptoAmount} ${asset.symbol}`,
         balanceAfterUsd: balanceUsd,
       },
     });
-    return { balanceUsd, txId: record.id };
+    return { balanceUsd, txId: record.id, txSignature };
   });
 }
 
@@ -68,7 +77,7 @@ export async function processWithdraw(input: {
   amountUsd: number;
   assetId: WalletAssetId;
   destinationAddress: string;
-}): Promise<{ balanceUsd: number; txId: string }> {
+}): Promise<{ balanceUsd: number; txId: string; txSignature: string }> {
   const amountUsd = roundUsd(input.amountUsd);
   if (!Number.isFinite(amountUsd) || amountUsd < MIN_USD) {
     throw new AuthError(`Minimum withdrawal is $${MIN_USD}`, 400);
@@ -80,6 +89,7 @@ export async function processWithdraw(input: {
   }
 
   const asset = getAsset(input.assetId);
+  const txSignature = makeTxRef(asset.id);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
@@ -108,11 +118,12 @@ export async function processWithdraw(input: {
         assetId: asset.id,
         assetSymbol: asset.symbol,
         address: destination,
+        txSignature,
         note: `Withdraw to ${destination}`,
         balanceAfterUsd: balanceUsd,
       },
     });
 
-    return { balanceUsd, txId: record.id };
+    return { balanceUsd, txId: record.id, txSignature };
   });
 }

@@ -93,7 +93,17 @@ export function useSocket(options?: { enabled?: boolean }) {
         authRetryRef.current += 1;
         void (async () => {
           try {
-            await fetch("/api/auth/guest", { method: "POST", credentials: "include" });
+            await fetch("/api/auth/guest", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                guestKey:
+                  typeof localStorage !== "undefined"
+                    ? localStorage.getItem("unox_guest_key")
+                    : null,
+              }),
+            });
             const token = await fetchSocketToken();
             if (token) socket.auth = { token };
           } catch {
