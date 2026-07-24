@@ -74,7 +74,7 @@ describe("canPlayCard", () => {
 });
 
 describe("createGame", () => {
-  it("deals 7 cards and starts playing", () => {
+  it("deals 10 cards and starts playing", () => {
     const state = createGame({
       id: "g1",
       lobbyId: null,
@@ -85,10 +85,12 @@ describe("createGame", () => {
     expect(state.phase).toBe("playing");
     expect(state.players).toHaveLength(4);
     for (const p of state.players) {
-      expect(p.hand).toHaveLength(7);
+      expect(p.hand).toHaveLength(10);
     }
     expect(state.discard).toHaveLength(1);
-    expect(state.deck.length).toBe(108 - 28 - 1);
+    expect(state.deck.length).toBe(108 - 40 - 1);
+    expect(state.missedUnoPenalty).toBe(5);
+    expect(state.maxVoluntaryDraws).toBe(5);
   });
 
   it("supports 2–5 players", () => {
@@ -144,7 +146,45 @@ describe("play and draw", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.drawn.length).toBeGreaterThanOrEqual(1);
+      expect(result.state.voluntaryDrawsThisTurn).toBe(1);
     }
+  });
+
+  it("allows up to 5 voluntary draws before ending turn", () => {
+    const state = createGame({
+      id: "g1",
+      lobbyId: null,
+      hostId: "u0",
+      players: makePlayers(2),
+      rng: seededRng(11),
+    });
+    const idx = state.currentPlayerIndex;
+    const current = state.players[idx];
+    current.hand = [{ id: "x1", color: "blue", value: "1" }];
+    state.currentColor = "red";
+    state.discard = [{ id: "top", color: "red", value: "9" }];
+    state.drawStack = 0;
+    // Ensure deck only gives unplayable blues
+    state.deck = Array.from({ length: 8 }, (_, i) => ({
+      id: `d${i}`,
+      color: "blue" as const,
+      value: "3" as const,
+    }));
+
+    for (let i = 0; i < 4; i++) {
+      const r = drawCards(state, current.id);
+      expect(r.ok).toBe(true);
+      expect(state.currentPlayerIndex).toBe(idx);
+      expect(state.voluntaryDrawsThisTurn).toBe(i + 1);
+    }
+
+    const fifth = drawCards(state, current.id);
+    expect(fifth.ok).toBe(true);
+    // After 5th unplayable draw, turn advances
+    expect(state.currentPlayerIndex).not.toBe(idx);
+    expect(state.voluntaryDrawsThisTurn).toBe(0);
+
+    // Back to same player later would reset; currently cannot draw again this turn
   });
 
   it("blocks draw when playable cards exist", () => {
@@ -286,7 +326,29 @@ describe("UNO call and catch", () => {
     }
   });
 
-  it("catch applies penalty cards", () => {
+  it("catch applies 5-card missed UNO penalty by default", () => {
+    const state = createGame({
+      id: "g1",
+      lobbyId: null,
+      hostId: "u0",
+      players: makePlayers(2),
+      rng: seededRng(2),
+    });
+    const target = state.players[0];
+    const catcher = state.players[1];
+    target.hand = [{ id: "c1", color: "red", value: "1" }];
+    target.unoVulnerable = true;
+    target.calledUno = false;
+
+    const result = catchUno(state, catcher.id, target.id);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.penalty).toBe(5);
+      expect(result.state.players[0].hand.length).toBe(6);
+    }
+  });
+
+  it("catch applies custom penalty cards", () => {
     const state = createGame({
       id: "g1",
       lobbyId: null,
@@ -361,8 +423,9 @@ describe("public view", () => {
       rng: seededRng(6),
     });
     const view = toPublicView(state, "u0");
-    expect(view.myHand).toHaveLength(7);
+    expect(view.myHand).toHaveLength(10);
     expect(view.players.every((p) => typeof p.handCount === "number")).toBe(true);
     expect(view.players[0]).not.toHaveProperty("hand");
+    expect(view.maxVoluntaryDraws).toBe(5);
   });
 });

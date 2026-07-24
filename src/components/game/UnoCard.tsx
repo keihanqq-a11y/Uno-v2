@@ -57,13 +57,15 @@ export function UnoCardView({
     return (
       <div
         className={cn(
-          "relative rounded-lg border border-gold/40 bg-[#141414] shadow-lg",
+          "relative rounded-lg border border-white/25 bg-[#111] shadow-lg",
           sizes[size],
           className,
         )}
       >
-        <div className="absolute inset-[3px] rounded-md border border-gold/25 bg-gradient-to-br from-[#1c1c1c] to-[#0d0d0d] flex items-center justify-center">
-          <span className="font-display text-gold/80 tracking-widest text-[10px]">UNO</span>
+        <div className="absolute inset-[3px] flex items-center justify-center rounded-md border border-red-500/35 bg-gradient-to-br from-[#1a1a1a] via-[#101010] to-[#0a0a0a]">
+          <span className="font-display text-[9px] font-bold tracking-tight text-white/85">
+            unox
+          </span>
         </div>
       </div>
     );

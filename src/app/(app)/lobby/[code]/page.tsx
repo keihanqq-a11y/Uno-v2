@@ -83,6 +83,15 @@ export default function LobbyPage() {
 
   const me = lobby.players.find((p) => p.userId === user.id);
   const isHost = lobby.hostId === user.id;
+  const humanPlayers = lobby.players.filter(
+    (p) => !p.isBot && !p.username.startsWith("bot_"),
+  );
+  const aloneAtTable = humanPlayers.length <= 1 && lobby.status === "WAITING";
+
+  const cashout = async () => {
+    await emit("lobby:leave", {});
+    router.push("/play");
+  };
 
   return (
     <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1fr_300px] animate-fade-up">
@@ -93,6 +102,20 @@ export default function LobbyPage() {
           {lobby.mode} · {lobby.players.length}/{lobby.maxPlayers} players
           {lobby.spectators.length > 0 && ` · ${lobby.spectators.length} spectating`}
         </p>
+
+        {aloneAtTable && (
+          <div className="mt-4 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/80">
+            Waiting for others to join. You can{" "}
+            <button
+              type="button"
+              onClick={() => void cashout()}
+              className="font-semibold text-red-400 underline-offset-2 hover:underline"
+            >
+              Cashout
+            </button>{" "}
+            and return to Play anytime.
+          </div>
+        )}
 
         <Panel className="mt-8 p-6">
           <h2 className="text-sm uppercase tracking-[0.16em] text-muted">Seats</h2>
@@ -161,15 +184,21 @@ export default function LobbyPage() {
                 Start game
               </Button>
             )}
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await emit("lobby:leave", {});
-                router.push("/play");
-              }}
-            >
-              Leave
-            </Button>
+            {aloneAtTable ? (
+              <Button variant="secondary" onClick={() => void cashout()}>
+                Cashout
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  await emit("lobby:leave", {});
+                  router.push("/play");
+                }}
+              >
+                Leave
+              </Button>
+            )}
           </div>
         </Panel>
 

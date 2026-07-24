@@ -29,6 +29,18 @@ function playTone(kind: "uno" | "catch" | "play") {
   }
 }
 
+/** Seat positions around the oval (percent), bottom reserved for local player. */
+const OPPONENT_SLOTS: Array<{ top: string; left: string }> = [
+  { top: "6%", left: "18%" },
+  { top: "2%", left: "38%" },
+  { top: "2%", left: "62%" },
+  { top: "6%", left: "82%" },
+  { top: "38%", left: "94%" },
+  { top: "38%", left: "6%" },
+  { top: "70%", left: "10%" },
+  { top: "70%", left: "90%" },
+];
+
 interface Props {
   game: PublicGameView;
   chat: ChatMessagePayload[];
@@ -42,6 +54,7 @@ interface Props {
   onChat: (content: string, isEmoji?: boolean) => void;
   onRematch: () => void;
   onLeave: () => void;
+  onCashout?: () => void;
 }
 
 export function GameTable({
@@ -57,6 +70,7 @@ export function GameTable({
   onChat,
   onRematch,
   onLeave,
+  onCashout,
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,6 +83,14 @@ export function GameTable({
     game.pendingColorChooser === game.myPlayerId;
 
   const showUnoButton = !!me && me.handCount === 1 && !me.calledUno;
+
+  const humansConnected = game.players.filter(
+    (p) => p.connected && !p.username.startsWith("bot_"),
+  ).length;
+  const canCashout = humansConnected <= 1 && game.phase !== "finished";
+
+  const maxVoluntary = game.maxVoluntaryDraws ?? 5;
+  const drawsLeft = Math.max(0, maxVoluntary - (game.voluntaryDrawsThisTurn ?? 0));
 
   const catchTargets = useMemo(
     () =>
@@ -128,16 +150,15 @@ export function GameTable({
     return ids;
   }, [game, isMyTurn]);
 
+  const canDraw =
+    isMyTurn &&
+    (game.drawStack > 0 || (playableIds.size === 0 && drawsLeft > 0));
+
   const handleCardClick = (cardId: string) => {
     if (!isMyTurn) return;
     const card = game.myHand.find((c) => c.id === cardId);
     if (!card || !playableIds.has(cardId)) return;
 
-    if (card.color === "wild") {
-      setSelected(cardId);
-      onPlay(cardId);
-      return;
-    }
     setSelected(cardId);
     onPlay(cardId);
   };
@@ -146,90 +167,196 @@ export function GameTable({
 
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col lg:flex-row">
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        {/* Table surface */}
-        <div className="relative flex flex-1 flex-col items-center justify-between px-4 py-6">
-          <div className="pointer-events-none absolute inset-8 rounded-[40%] border border-gold/10 bg-[radial-gradient(ellipse_at_center,rgba(24,24,24,0.9),rgba(10,10,10,0.2))]" />
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-[#070707]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(40,40,40,0.35),transparent_65%)]" />
 
-          {/* Opponents */}
-          <div className="relative z-10 flex w-full flex-wrap justify-center gap-6">
-            {opponents.map((p) => (
-              <OpponentSeat
-                key={p.id}
-                player={p}
-                active={game.currentPlayerId === p.id}
-              />
-            ))}
+        {/* Top bar */}
+        <div className="relative z-20 flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="font-display text-lg font-bold tracking-tight text-white">
+              unox
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.22em] text-muted">
+              {game.direction === 1 ? "Clockwise" : "Counter-clockwise"}
+            </span>
           </div>
-
-          {/* Center pile */}
-          <div className="relative z-10 my-8 flex items-center gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <UnoCardView
-                card={{ id: "deck", color: "wild", value: "wild" }}
-                faceDown
-                size="lg"
-              />
-              <span className="text-xs text-muted">{game.deckCount} left</span>
+          <div className="flex items-center gap-2">
+            {canCashout && (
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={!isMyTurn}
-                onClick={onDraw}
+                onClick={() => (onCashout ?? onLeave)()}
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
               >
-                Draw
+                Cashout
               </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={onLeave}>
+              Leave
+            </Button>
+          </div>
+        </div>
+
+        {/* Oval table arena */}
+        <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-3 pb-2 pt-1">
+          <div className="relative mx-auto aspect-[16/10] w-full max-h-[min(58vh,520px)] min-h-[280px]">
+            {/* Felt */}
+            <div className="unox-table absolute inset-[4%] overflow-hidden rounded-[50%]">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#1a1a1a_0%,#0d0d0d_55%,#080808_100%)]" />
+              <div className="pointer-events-none absolute inset-[3%] rounded-[50%] border border-white/10" />
+              <div className="pointer-events-none absolute inset-0 rounded-[50%] shadow-[inset_0_0_60px_rgba(0,0,0,0.85)]" />
+
+              {/* Center: logo + deck + discard */}
+              <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
+                <p className="font-display text-4xl font-extrabold tracking-tight text-white/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-5xl animate-float">
+                  unox
+                </p>
+
+                <div className="flex items-end gap-5 sm:gap-8">
+                  {/* Deck */}
+                  <div className="relative flex flex-col items-center gap-1.5">
+                    <div className="relative">
+                      <div className="absolute -left-1 -top-1 rotate-[-6deg] opacity-50">
+                        <UnoCardView
+                          card={{ id: "deck-2", color: "wild", value: "wild" }}
+                          faceDown
+                          size="md"
+                        />
+                      </div>
+                      <div className="absolute -left-0.5 -top-0.5 rotate-[-3deg] opacity-70">
+                        <UnoCardView
+                          card={{ id: "deck-1", color: "wild", value: "wild" }}
+                          faceDown
+                          size="md"
+                        />
+                      </div>
+                      <UnoCardView
+                        card={{ id: "deck", color: "wild", value: "wild" }}
+                        faceDown
+                        size="md"
+                        className="relative"
+                      />
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider text-white/50">
+                      Deck · {game.deckCount}
+                    </span>
+                  </div>
+
+                  {/* Discard */}
+                  <div className="flex flex-col items-center gap-1.5">
+                    {game.topCard ? (
+                      <UnoCardView card={game.topCard} size="md" className="animate-card-in" />
+                    ) : (
+                      <div className="h-24 w-16 rounded-lg border border-dashed border-white/20" />
+                    )}
+                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50">
+                      <span
+                        className={cn(
+                          "inline-block h-2.5 w-2.5 rounded-full",
+                          game.currentColor === "red" && "bg-[var(--uno-red)]",
+                          game.currentColor === "yellow" && "bg-[var(--uno-yellow)]",
+                          game.currentColor === "green" && "bg-[var(--uno-green)]",
+                          game.currentColor === "blue" && "bg-[var(--uno-blue)]",
+                        )}
+                      />
+                      {game.currentColor}
+                      {game.drawStack > 0 && (
+                        <span className="text-danger">+{game.drawStack}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-1 flex items-center gap-3">
+                  <span className="font-display text-2xl tabular-nums text-white/90">
+                    {timerLeft}
+                  </span>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40">sec</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2">
-              {game.topCard && (
-                <UnoCardView card={game.topCard} size="lg" className="animate-card-in" />
-              )}
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <span
-                  className={cn(
-                    "inline-block h-3 w-3 rounded-full",
-                    game.currentColor === "red" && "bg-[var(--uno-red)]",
-                    game.currentColor === "yellow" && "bg-[var(--uno-yellow)]",
-                    game.currentColor === "green" && "bg-[var(--uno-green)]",
-                    game.currentColor === "blue" && "bg-[var(--uno-blue)]",
+            {/* Opponent seats around the oval */}
+            {opponents.map((p, i) => {
+              const slot = OPPONENT_SLOTS[i % OPPONENT_SLOTS.length];
+              return (
+                <div
+                  key={p.id}
+                  className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                  style={{ top: slot.top, left: slot.left }}
+                >
+                  <OpponentSeat
+                    player={p}
+                    active={game.currentPlayerId === p.id}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Local controls + hand */}
+          <div className="relative z-10 mt-2 w-full max-w-4xl self-center px-1">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                {me && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-full border px-3 py-1.5",
+                      isMyTurn
+                        ? "border-red-500/60 bg-red-500/10"
+                        : "border-white/10 bg-white/5",
+                    )}
+                  >
+                    <span className="text-sm text-white">{me.displayName}</span>
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-black">
+                      {me.handCount}
+                    </span>
+                    {me.calledUno && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
+                        UNO
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="text-sm text-muted">
+                  {isMyTurn ? (
+                    <span className="text-red-400">Your turn</span>
+                  ) : (
+                    "Waiting…"
                   )}
-                />
-                <span className="uppercase tracking-wider">{game.currentColor}</span>
-                <span>·</span>
-                <span>{game.direction === 1 ? "CW" : "CCW"}</span>
-                {game.drawStack > 0 && (
-                  <>
-                    <span>·</span>
-                    <span className="text-danger">+{game.drawStack}</span>
-                  </>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!canDraw}
+                  onClick={onDraw}
+                  className="min-w-[110px]"
+                >
+                  {game.drawStack > 0
+                    ? `Draw +${game.drawStack}`
+                    : `Draw Card${isMyTurn ? ` (${drawsLeft})` : ""}`}
+                </Button>
+                {showUnoButton && (
+                  <Button size="sm" onClick={onUno} className="min-w-[110px] animate-pulse-gold">
+                    Call Uno
+                  </Button>
+                )}
+                {canCashout && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => (onCashout ?? onLeave)()}
+                    className="text-white/80"
+                  >
+                    Cashout
+                  </Button>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-1 min-w-[72px]">
-              <span className="font-display text-3xl text-gold tabular-nums">{timerLeft}</span>
-              <span className="text-[10px] uppercase tracking-widest text-muted">sec</span>
-            </div>
-          </div>
-
-          {/* My hand */}
-          <div className="relative z-10 w-full max-w-4xl">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm text-muted">
-                {isMyTurn ? (
-                  <span className="text-gold">Your turn</span>
-                ) : (
-                  "Waiting…"
-                )}
-              </p>
-              {me && (
-                <p className="text-xs text-muted">
-                  {me.displayName} · {me.handCount} cards
-                  {me.calledUno && <span className="ml-2 text-gold">UNO</span>}
-                </p>
-              )}
-            </div>
             <div className="flex flex-wrap justify-center gap-2 pb-4">
               {game.myHand.map((card, i) => (
                 <div
@@ -246,7 +373,7 @@ export function GameTable({
                 </div>
               ))}
               {!game.myHand.length && game.phase === "playing" && (
-                <p className="text-muted text-sm">Spectating</p>
+                <p className="text-sm text-muted">Spectating</p>
               )}
             </div>
           </div>
@@ -254,7 +381,9 @@ export function GameTable({
 
         {notice && (
           <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-            <p className="font-display text-5xl text-gold animate-uno drop-shadow-lg">{notice}</p>
+            <p className="animate-uno font-display text-5xl text-red-400 drop-shadow-lg">
+              {notice}
+            </p>
           </div>
         )}
       </div>
@@ -286,41 +415,52 @@ function OpponentSeat({
   player: PublicPlayerView;
   active: boolean;
 }) {
+  const backs = Math.min(player.handCount, 10);
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-2 rounded-lg border px-4 py-3 min-w-[120px]",
-        active ? "border-gold bg-gold/5" : "border-border bg-card/50",
-        !player.connected && "opacity-50",
+        "flex min-w-[108px] flex-col items-center gap-1.5 rounded-xl border px-3 py-2 backdrop-blur-sm transition",
+        active
+          ? "border-red-500/70 bg-red-500/15 shadow-[0_0_24px_rgba(239,68,68,0.25)]"
+          : "border-white/15 bg-black/70",
+        !player.connected && "opacity-45",
       )}
     >
-      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-[#0A0A0A] text-sm text-gold">
-        {player.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={player.avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          player.displayName.slice(0, 1)
-        )}
+      <div className="relative">
+        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-white/20 bg-[#0A0A0A] text-sm text-white">
+          {player.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={player.avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            player.displayName.slice(0, 1)
+          )}
+        </div>
+        <span className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border border-black bg-white px-1 text-xs font-bold text-black shadow">
+          {player.handCount}
+        </span>
       </div>
-      <p className="text-sm">
+      <p className="max-w-[100px] truncate text-center text-xs text-white">
         {player.displayName}
         {player.username.startsWith("bot_") && (
-          <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">bot</span>
+          <span className="ml-1 text-[9px] uppercase tracking-wider text-muted">bot</span>
         )}
       </p>
-      <div className="flex items-end -space-x-2">
-        {Array.from({ length: Math.min(player.handCount, 7) }).map((_, i) => (
+      <div className="flex h-8 items-end -space-x-3">
+        {Array.from({ length: backs }).map((_, i) => (
           <UnoCardView
             key={i}
             card={{ id: `${player.id}-${i}`, color: "wild", value: "wild" }}
             faceDown
             size="sm"
+            className="!h-8 !w-5 scale-90"
           />
         ))}
       </div>
-      <p className="text-[10px] uppercase tracking-wider text-muted">
-        {player.handCount} cards
-        {player.calledUno && <span className="text-gold"> · UNO</span>}
+      <p className="text-[9px] uppercase tracking-wider text-white/45">
+        {player.handCount} card{player.handCount === 1 ? "" : "s"}
+        {player.calledUno && <span className="text-red-400"> · UNO</span>}
+        {!player.connected && <span> · Offline</span>}
       </p>
     </div>
   );

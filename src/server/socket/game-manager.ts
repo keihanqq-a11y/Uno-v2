@@ -58,7 +58,7 @@ export function startGame(params: {
   onStateChange?: (state: GameState) => void;
 }): GameState {
   const id = nanoid();
-  const penalty = Number(process.env.HOUSE_RULE_MISSED_UNO_PENALTY ?? 2);
+  const penalty = Number(process.env.HOUSE_RULE_MISSED_UNO_PENALTY ?? 5);
   const turnTimerSec = Number(process.env.TURN_TIMER_SECONDS ?? 30);
 
   const state = createGame({

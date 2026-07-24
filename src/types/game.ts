@@ -80,6 +80,9 @@ export interface GameState {
   turnStartedAt: number;
   turnTimerSec: number;
   missedUnoPenalty: number;
+  /** Voluntary draws taken this turn (capped at maxVoluntaryDraws). */
+  voluntaryDrawsThisTurn: number;
+  maxVoluntaryDraws: number;
   maxPlayers: number;
   hostId: string;
   startedAt: number | null;
@@ -104,6 +107,8 @@ export interface PublicGameView {
   turnStartedAt: number;
   turnTimerSec: number;
   missedUnoPenalty: number;
+  voluntaryDrawsThisTurn: number;
+  maxVoluntaryDraws: number;
   maxPlayers: number;
   hostId: string;
   startedAt: number | null;

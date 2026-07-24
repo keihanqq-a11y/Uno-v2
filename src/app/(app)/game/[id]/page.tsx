@@ -80,16 +80,20 @@ export default function GamePage() {
             variant="secondary"
             onClick={() => {
               setSyncError(null);
-              void emit("game:sync", { gameId }).then(
-                (res: { ok?: boolean; game?: PublicGameView; error?: string; lobbyCode?: string }) => {
-                  if (res?.ok && res.game) {
-                    setGame(res.game);
-                    if (res.lobbyCode) setLobbyCode(res.lobbyCode);
-                  } else {
-                    setSyncError(res?.error ?? "Still could not load game");
-                  }
-                },
-              );
+              void emit("game:sync", { gameId }).then((res) => {
+                const data = res as {
+                  ok?: boolean;
+                  game?: PublicGameView;
+                  error?: string;
+                  lobbyCode?: string;
+                };
+                if (data?.ok && data.game) {
+                  setGame(data.game);
+                  if (data.lobbyCode) setLobbyCode(data.lobbyCode);
+                } else {
+                  setSyncError(data?.error ?? "Still could not load game");
+                }
+              });
             }}
           >
             Retry
@@ -127,6 +131,10 @@ export default function GamePage() {
         });
       }}
       onLeave={() => {
+        void emitAction("lobby:leave", {});
+        router.push("/play");
+      }}
+      onCashout={() => {
         void emitAction("lobby:leave", {});
         router.push("/play");
       }}

@@ -16,10 +16,15 @@ const ACTION_VALUES: CardValue[] = ["skip", "reverse", "draw2"];
 const COLORS: Exclude<CardColor, "wild">[] = ["red", "yellow", "green", "blue"];
 
 const DEFAULT_RULES: HouseRules = {
-  missedUnoPenalty: 2,
+  missedUnoPenalty: 5,
   turnTimerSec: 30,
   allowStackDrawTwo: false,
 };
+
+/** Cards dealt to each player at game start. */
+export const DEAL_HAND_SIZE = 10;
+/** Max voluntary draws a player may take in a single turn. */
+export const MAX_VOLUNTARY_DRAWS = 5;
 
 /** Build a standard 108-card UNO deck. */
 export function createDeck(): UnoCard[] {
@@ -150,6 +155,12 @@ function findPlayerIndex(state: GameState, playerId: string): number {
   return state.players.findIndex((p) => p.id === playerId && !p.isSpectator);
 }
 
+function advanceTurn(state: GameState, from: number, steps = 1): void {
+  state.currentPlayerIndex = advanceIndex(state, from, steps);
+  state.turnStartedAt = Date.now();
+  state.voluntaryDrawsThisTurn = 0;
+}
+
 function markUnoState(player: PlayerState): void {
   if (player.hand.length === 1) {
     if (!player.calledUno) {
@@ -162,7 +173,7 @@ function markUnoState(player: PlayerState): void {
 }
 
 /**
- * Create a fresh game: shuffle, deal 7, pick starter, reveal first non-wild card.
+ * Create a fresh game: shuffle, deal 10, pick starter, reveal first non-wild card.
  */
 export function createGame(params: {
   id: string;
@@ -194,8 +205,8 @@ export function createGame(params: {
       isSpectator: false,
     }));
 
-  // Deal 7 cards each
-  for (let i = 0; i < 7; i++) {
+  // Deal DEAL_HAND_SIZE cards each
+  for (let i = 0; i < DEAL_HAND_SIZE; i++) {
     for (const player of players) {
       const card = deck.pop();
       if (card) player.hand.push(card);
@@ -266,6 +277,8 @@ export function createGame(params: {
     turnStartedAt: Date.now(),
     turnTimerSec: rules.turnTimerSec,
     missedUnoPenalty: rules.missedUnoPenalty,
+    voluntaryDrawsThisTurn: 0,
+    maxVoluntaryDraws: MAX_VOLUNTARY_DRAWS,
     maxPlayers: players.length,
     hostId: params.hostId,
     startedAt: Date.now(),
@@ -390,43 +403,37 @@ function applyCardEffect(state: GameState, card: UnoCard, playerId: string): voi
       // Reverse acts like Skip in two-player games: opponent is skipped,
       // so advance by 2 and the same player goes again.
       state.lastAction = { type: "reverse", playerId };
-      state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 2);
-      state.turnStartedAt = Date.now();
+      advanceTurn(state, state.currentPlayerIndex, 2);
       return;
     }
     state.direction = (state.direction === 1 ? -1 : 1) as Direction;
     state.lastAction = { type: "reverse", playerId };
-    state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 1);
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, state.currentPlayerIndex, 1);
     return;
   }
 
   if (card.value === "skip") {
     state.lastAction = { type: "skip", playerId };
     // Skip the next player: advance by 2 from current (who just played)
-    state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 2);
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, state.currentPlayerIndex, 2);
     return;
   }
 
   if (card.value === "draw2") {
     state.drawStack += 2;
     // Next player will draw (or stack if enabled) — advance turn
-    state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 1);
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, state.currentPlayerIndex, 1);
     return;
   }
 
   if (card.value === "wild4") {
     // drawStack already incremented when color pending; after color chosen we advance
-    state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 1);
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, state.currentPlayerIndex, 1);
     return;
   }
 
   // Normal / wild color already set
-  state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 1);
-  state.turnStartedAt = Date.now();
+  advanceTurn(state, state.currentPlayerIndex, 1);
 }
 
 export function chooseColor(
@@ -441,7 +448,6 @@ export function chooseColor(
     return { ok: false, error: "Not your color choice" };
   }
 
-  const top = state.discard[state.discard.length - 1];
   state.currentColor = color;
   state.pendingColorChooser = null;
   state.phase = "playing";
@@ -453,26 +459,14 @@ export function chooseColor(
   }
 
   // After wild/wild4 color choice, advance turn (wild4 already added to drawStack)
-  if (top?.value === "wild4") {
-    state.currentPlayerIndex = advanceIndex(
-      state,
-      findPlayerIndex(state, playerId),
-      1,
-    );
-  } else {
-    state.currentPlayerIndex = advanceIndex(
-      state,
-      findPlayerIndex(state, playerId),
-      1,
-    );
-  }
-  state.turnStartedAt = Date.now();
+  advanceTurn(state, findPlayerIndex(state, playerId), 1);
   return { ok: true, state };
 }
 
 /**
  * Draw cards. If drawStack > 0, player must take the stack (no play).
- * Otherwise draw 1. If still no playable card after optional force, turn ends.
+ * Otherwise draw 1 (voluntary), up to maxVoluntaryDraws per turn.
+ * Keep the turn while draws remain or a playable card was drawn.
  */
 export function drawCards(
   state: GameState,
@@ -491,38 +485,41 @@ export function drawCards(
   const top = state.discard[state.discard.length - 1];
   if (!top) return { ok: false, error: "No discard pile" };
 
-  const count = state.drawStack > 0 ? state.drawStack : 1;
+  const forced = state.drawStack > 0;
+  const maxDraws = state.maxVoluntaryDraws || MAX_VOLUNTARY_DRAWS;
 
-  // If no pending stack, only allow draw when no playable cards
-  if (state.drawStack === 0) {
+  if (!forced) {
+    if (state.voluntaryDrawsThisTurn >= maxDraws) {
+      return { ok: false, error: `Already drew ${maxDraws} cards this turn` };
+    }
     const playable = getPlayableCards(player.hand, top, state.currentColor, 0);
     if (playable.length > 0) {
       return { ok: false, error: "You have playable cards" };
     }
   }
 
+  const count = forced ? state.drawStack : 1;
   const drawn = drawFromDeck(state, count);
   player.hand.push(...drawn);
   const drawnCount = drawn.length;
   state.drawStack = 0;
+  if (!forced) {
+    state.voluntaryDrawsThisTurn += 1;
+  }
   markUnoState(player);
   state.lastAction = { type: "draw", playerId, count: drawnCount };
 
   const endTurn = options.endTurnIfUnplayable !== false;
   if (endTurn) {
-    // After forced stack draw, turn always ends. After voluntary draw of 1,
-    // if the drawn card is playable the player may play it — we keep the turn
-    // only if they just drew 1 voluntarily and it is playable.
-    if (count > 1 || drawnCount === 0) {
-      state.currentPlayerIndex = advanceIndex(state, idx, 1);
-      state.turnStartedAt = Date.now();
+    if (forced || drawnCount === 0) {
+      advanceTurn(state, idx, 1);
     } else {
       const playable = getPlayableCards(player.hand, top, state.currentColor, 0);
-      if (playable.length === 0) {
-        state.currentPlayerIndex = advanceIndex(state, idx, 1);
-        state.turnStartedAt = Date.now();
+      if (playable.length === 0 && state.voluntaryDrawsThisTurn >= maxDraws) {
+        // Used all voluntary draws and still cannot play — end turn
+        advanceTurn(state, idx, 1);
       }
-      // else: keep turn so player can play the drawn card
+      // else: keep turn to play drawn card or draw again (up to max)
     }
   }
 
@@ -591,17 +588,11 @@ export function handleTurnTimeout(
   const result = drawCards(state, current.id, { endTurnIfUnplayable: true });
   if (!result.ok) {
     // Force end turn anyway
-    state.currentPlayerIndex = advanceIndex(state, state.currentPlayerIndex, 1);
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, state.currentPlayerIndex, 1);
     state.drawStack = 0;
   } else if (getCurrentPlayer(state)?.id === current.id) {
     // Still their turn after draw (playable card) — force pass on timeout
-    state.currentPlayerIndex = advanceIndex(
-      state,
-      findPlayerIndex(state, current.id),
-      1,
-    );
-    state.turnStartedAt = Date.now();
+    advanceTurn(state, findPlayerIndex(state, current.id), 1);
   }
 
   state.lastAction = { type: "turn_timeout", playerId: current.id };
@@ -668,6 +659,8 @@ export function toPublicView(state: GameState, forUserId: string | null): Public
     turnStartedAt: state.turnStartedAt,
     turnTimerSec: state.turnTimerSec,
     missedUnoPenalty: state.missedUnoPenalty,
+    voluntaryDrawsThisTurn: state.voluntaryDrawsThisTurn,
+    maxVoluntaryDraws: state.maxVoluntaryDraws,
     maxPlayers: state.maxPlayers,
     hostId: state.hostId,
     startedAt: state.startedAt,

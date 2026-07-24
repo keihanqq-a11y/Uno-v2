@@ -8,7 +8,7 @@ export function UnoCallButton({ onCall }: { onCall: () => void }) {
       <Button
         size="lg"
         onClick={onCall}
-        className="h-16 min-w-[200px] rounded-full text-xl tracking-[0.2em] animate-pulse-gold shadow-[0_0_40px_rgba(212,175,55,0.25)]"
+        className="h-16 min-w-[220px] rounded-full border border-red-400/40 bg-red-600 text-xl tracking-[0.18em] text-white shadow-[0_0_40px_rgba(239,68,68,0.35)] animate-pulse-gold hover:bg-red-500"
       >
         CALL UNO
       </Button>
