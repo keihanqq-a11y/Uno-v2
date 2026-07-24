@@ -58,6 +58,18 @@ export async function claimDailyLogin(userId: string) {
       xp,
       level,
     },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      role: true,
+      level: true,
+      xp: true,
+      loginStreak: true,
+      emailVerified: true,
+    },
   });
 
   await maybeUnlockAchievements(userId);
