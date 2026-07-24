@@ -26,11 +26,8 @@ export function getIO(): Server | null {
   return io;
 }
 
-async function resolveUserFromCookie(cookieHeader?: string): Promise<SocketUser | null> {
-  if (!cookieHeader) return null;
-  const match = cookieHeader.match(/(?:^|;\s*)uno_session=([^;]+)/);
-  if (!match) return null;
-  const token = decodeURIComponent(match[1]);
+async function resolveUserFromToken(token?: string | null): Promise<SocketUser | null> {
+  if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { token },
     include: {
@@ -52,6 +49,13 @@ async function resolveUserFromCookie(cookieHeader?: string): Promise<SocketUser 
     displayName: session.user.displayName,
     avatarUrl: session.user.avatarUrl,
   };
+}
+
+async function resolveUserFromCookie(cookieHeader?: string): Promise<SocketUser | null> {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/(?:^|;\s*)uno_session=([^;]+)/);
+  if (!match) return null;
+  return resolveUserFromToken(decodeURIComponent(match[1]));
 }
 
 function lobbyRoom(id: string) {
@@ -145,7 +149,13 @@ export function initSocketServer(httpServer: HttpServer) {
 
   io.use(async (socket: AuthedSocket, next) => {
     try {
-      const user = await resolveUserFromCookie(socket.request.headers.cookie);
+      const authToken =
+        typeof socket.handshake.auth?.token === "string"
+          ? socket.handshake.auth.token
+          : null;
+      const user =
+        (await resolveUserFromToken(authToken)) ||
+        (await resolveUserFromCookie(socket.request.headers.cookie));
       if (!user) return next(new Error("Unauthorized"));
       socket.data.user = user;
       next();

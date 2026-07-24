@@ -23,6 +23,17 @@ function getSocket() {
   return shared;
 }
 
+async function fetchSocketToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/socket-token", { credentials: "include" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { token?: string };
+    return data.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function waitForConnect(socket: Socket, ms = 12000): Promise<void> {
   if (socket.connected) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -68,6 +79,7 @@ export function useSocket(options?: { enabled?: boolean }) {
     const socket = getSocket();
     socketRef.current = socket;
     authRetryRef.current = 0;
+    let cancelled = false;
 
     const onConnect = () => {
       setConnected(true);
@@ -77,15 +89,17 @@ export function useSocket(options?: { enabled?: boolean }) {
     const onDisconnect = () => setConnected(false);
     const onError = (err: Error) => {
       const msg = err.message || "Socket failed";
-      // Cookie/session race: guest auth may finish after first handshake.
       if (/unauthorized/i.test(msg) && authRetryRef.current < 2) {
         authRetryRef.current += 1;
         void (async () => {
           try {
             await fetch("/api/auth/guest", { method: "POST", credentials: "include" });
+            const token = await fetchSocketToken();
+            if (token) socket.auth = { token };
           } catch {
             /* ignore */
           }
+          if (cancelled) return;
           window.setTimeout(() => {
             socket.disconnect();
             socket.connect();
@@ -105,13 +119,19 @@ export function useSocket(options?: { enabled?: boolean }) {
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onError);
 
-    if (socket.connected) {
-      setConnected(true);
-    } else {
-      socket.connect();
-    }
+    void (async () => {
+      const token = await fetchSocketToken();
+      if (cancelled) return;
+      if (token) socket.auth = { token };
+      if (socket.connected) {
+        setConnected(true);
+      } else {
+        socket.connect();
+      }
+    })();
 
     return () => {
+      cancelled = true;
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("connect_error", onError);
@@ -121,6 +141,10 @@ export function useSocket(options?: { enabled?: boolean }) {
   const emit = useCallback(async <T,>(event: string, payload?: unknown): Promise<T> => {
     const s = getSocket();
     socketRef.current = s;
+    if (!s.auth || !(s.auth as { token?: string }).token) {
+      const token = await fetchSocketToken();
+      if (token) s.auth = { token };
+    }
     if (!s.connected) s.connect();
     await waitForConnect(s);
 

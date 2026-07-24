@@ -1,11 +1,11 @@
 @echo off
 setlocal
-title UNO Premium
+title UnoX
 cd /d "%~dp0"
 
 echo.
 echo ========================================
-echo   UNO Premium
+echo   UnoX
 echo ========================================
 echo Folder: %CD%
 echo.
@@ -38,6 +38,10 @@ if %NODEMAJOR% LSS 20 (
   pause
   exit /b 1
 )
+
+echo Stopping old servers...
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%p >nul 2>nul
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3001" ^| findstr "LISTENING"') do taskkill /F /PID %%p >nul 2>nul
 
 echo [1/3] npm install...
 call npm install --no-fund --no-audit

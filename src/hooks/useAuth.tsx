@@ -27,13 +27,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function ensureGuest(): Promise<User> {
-  const me = await fetch("/api/auth/me");
+  const me = await fetch("/api/auth/me", { credentials: "include" });
   if (me.ok) {
     const data = await me.json();
     if (data.user) return data.user as User;
   }
 
-  const guest = await fetch("/api/auth/guest", { method: "POST" });
+  const guest = await fetch("/api/auth/guest", { method: "POST", credentials: "include" });
   const data = await guest.json().catch(() => ({}));
   if (!guest.ok || !data.user) {
     throw new Error(data.error ?? "Could not start guest session. Is the database set up?");
