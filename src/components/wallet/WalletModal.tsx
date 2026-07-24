@@ -8,27 +8,12 @@ import {
   shortenAddress,
   type WalletAssetId,
 } from "@/lib/wallet/assets";
+import { CryptoLogo } from "@/components/wallet/CryptoLogo";
 import { cn } from "@/lib/utils";
 
 type Tab = "Deposit" | "Withdraw" | "Gift Cards" | "Buy Crypto" | "Tip";
 
 const TABS: Tab[] = ["Deposit", "Withdraw", "Gift Cards", "Buy Crypto", "Tip"];
-
-function AssetIcon({ id, className }: { id: WalletAssetId; className?: string }) {
-  const asset = getAsset(id);
-  return (
-    <span
-      className={cn(
-        "inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white",
-        className,
-      )}
-      style={{ background: asset.color }}
-      aria-hidden
-    >
-      {asset.symbol.slice(0, 1)}
-    </span>
-  );
-}
 
 export function WalletModal({
   open,
@@ -85,7 +70,6 @@ export function WalletModal({
       />
 
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#141414] shadow-2xl animate-fade-up">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#2a2a2a] px-5 py-4">
           <div className="flex items-center gap-2 text-white">
             <WalletGlyph />
@@ -101,7 +85,6 @@ export function WalletModal({
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 overflow-x-auto border-b border-[#2a2a2a] px-3 py-2">
           {TABS.map((t) => (
             <button
@@ -110,9 +93,7 @@ export function WalletModal({
               onClick={() => setTab(t)}
               className={cn(
                 "shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors",
-                tab === t
-                  ? "bg-[#222] text-white"
-                  : "text-[#9a9a9a] hover:text-white",
+                tab === t ? "bg-[#222] text-white" : "text-[#9a9a9a] hover:text-white",
               )}
             >
               {t}
@@ -179,7 +160,7 @@ function DepositPanel({
             className="flex w-full items-center justify-between rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] px-4 py-3 text-left hover:border-[#3a3a3a]"
           >
             <span className="flex items-center gap-3">
-              <AssetIcon id={asset.id} />
+              <CryptoLogo id={asset.id} size={28} />
               <span className="font-semibold text-white">{asset.name}</span>
             </span>
             <span className="text-[#888]">▾</span>
@@ -200,7 +181,7 @@ function DepositPanel({
                     a.id === assetId && "bg-white/5",
                   )}
                 >
-                  <AssetIcon id={a.id} />
+                  <CryptoLogo id={a.id} size={28} />
                   <span className="flex-1 text-sm text-white">{a.name}</span>
                   <span className="text-xs text-[#888]">{a.symbol}</span>
                 </button>
@@ -210,10 +191,9 @@ function DepositPanel({
         </div>
       </div>
 
-      {/* Network pill */}
       <div className="flex justify-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#2a2a2a] bg-[#1a1a1a] px-4 py-1.5 text-sm text-[#cfcfcf]">
-          <AssetIcon id={asset.id} className="h-4 w-4 text-[8px]" />
+          <CryptoLogo id={asset.id} size={18} />
           {asset.network}
           <span className="text-[#666]">⇅</span>
         </div>
@@ -221,9 +201,8 @@ function DepositPanel({
 
       <p className="text-xs text-[#9a9a9a]">Your {asset.name} deposit address</p>
 
-      {/* QR */}
       <div className="flex justify-center">
-        <div className="rounded-2xl bg-white p-3">
+        <div className="relative rounded-2xl bg-white p-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qrCodeUrl(asset.address, 220)}
@@ -232,10 +211,14 @@ function DepositPanel({
             height={220}
             className="block rounded-lg"
           />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-full bg-white p-1 shadow">
+              <CryptoLogo id={asset.id} size={36} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Address + copy */}
       <div className="flex items-center gap-3 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-3">
         <button
           type="button"
@@ -259,7 +242,6 @@ function DepositPanel({
 
       <p className="text-center text-xs text-[#8a8a8a]">{asset.warning}</p>
 
-      {/* Conversion */}
       <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-4">
         <p className="mb-3 text-[10px] uppercase tracking-[0.16em] text-[#8a8a8a]">
           Conversion rate
@@ -281,7 +263,7 @@ function DepositPanel({
         </div>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-white">
-            <AssetIcon id={asset.id} />
+            <CryptoLogo id={asset.id} size={24} />
             <span className="font-medium">
               {amount || "0"} {asset.symbol}
             </span>
