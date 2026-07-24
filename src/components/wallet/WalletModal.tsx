@@ -230,13 +230,13 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                       setSuccess(null);
                     }}
                     className={`relative flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                      active ? "text-black" : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                      active ? "text-black" : "text-zinc-400 hover:bg-[#d4af37]/8 hover:text-[#e8c56a]"
                     }`}
                   >
                     {active ? (
                       <motion.span
                         layoutId="wallet-tab"
-                        className="absolute inset-0 rounded-lg bg-white"
+                        className="absolute inset-0 rounded-lg bg-[#d4af37]"
                         transition={{ type: "spring", stiffness: 420, damping: 32 }}
                       />
                     ) : null}
@@ -297,7 +297,7 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                             type="button"
                             onClick={() => void copyAddress()}
                             className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                              copied ? "bg-zinc-200 text-black" : "bg-white text-black hover:bg-neutral-200"
+                              copied ? "bg-zinc-200 text-black" : "bg-[#d4af37] text-black hover:bg-[#e0c04a]"
                             }`}
                           >
                             {copied ? "Copied" : "Copy"}
@@ -339,7 +339,7 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                         type="button"
                         disabled={busy || usd < 1}
                         onClick={() => void confirmDeposit()}
-                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black transition hover:bg-neutral-200 enabled:active:scale-[0.99] disabled:opacity-40"
+                        className="w-full rounded-xl bg-[#d4af37] py-3 text-sm font-bold text-black transition hover:bg-[#e0c04a] enabled:active:scale-[0.99] disabled:opacity-40"
                       >
                         {busy ? "Crediting…" : "Confirm deposit"}
                       </button>
@@ -385,7 +385,7 @@ export function WalletModal({ open, onClose, initialTab = "Deposit" }: Props) {
                         type="button"
                         disabled={busy || usd < 1 || !destAddress.trim() || usd > balance}
                         onClick={() => void confirmWithdraw()}
-                        className="w-full rounded-xl bg-white py-3 text-sm font-bold text-black transition hover:bg-neutral-200 enabled:active:scale-[0.99] disabled:opacity-40"
+                        className="w-full rounded-xl bg-[#d4af37] py-3 text-sm font-bold text-black transition hover:bg-[#e0c04a] enabled:active:scale-[0.99] disabled:opacity-40"
                       >
                         {busy ? "Sending…" : "Withdraw to wallet"}
                       </button>

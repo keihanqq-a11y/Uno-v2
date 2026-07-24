@@ -347,10 +347,10 @@ function MetaCell({
 }) {
   return (
     <div
-      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-white" : "text-zinc-400"}`}
+      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-[#e8c56a]" : "text-zinc-400"}`}
     >
       <p
-        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-white" : "text-zinc-500"}`}
+        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-[#e8c56a]" : "text-zinc-500"}`}
       >
         {label}
       </p>
@@ -374,8 +374,8 @@ function Chip({
       onClick={onClick}
       className={`h-9 min-w-9 rounded-lg border px-3 text-xs font-semibold transition ${
         active
-          ? "border-white bg-white text-black"
-          : "border-white/15 text-zinc-400 hover:border-white/30 hover:text-white"
+          ? "border-[#d4af37] bg-[#d4af37] text-black"
+          : "border-white/15 text-zinc-400 hover:border-[#d4af37]/40 hover:text-[#e8c56a]"
       }`}
     >
       {children}
