@@ -134,9 +134,13 @@ async function persistGameResults(gameId: string) {
 }
 
 export function initSocketServer(httpServer: HttpServer) {
+  const origin = process.env.APP_URL ?? "http://localhost:3000";
   io = new Server(httpServer, {
     path: "/api/socketio",
-    cors: { origin: process.env.APP_URL ?? "http://localhost:3000", credentials: true },
+    cors: {
+      origin: [origin, "http://localhost:3000", "http://127.0.0.1:3000"],
+      credentials: true,
+    },
   });
 
   io.use(async (socket: AuthedSocket, next) => {

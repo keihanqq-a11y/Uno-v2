@@ -5,9 +5,13 @@ import { io, Socket } from "socket.io-client";
 
 let shared: Socket | null = null;
 
+function socketUrl() {
+  return process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+}
+
 function getSocket() {
   if (!shared) {
-    shared = io({
+    shared = io(socketUrl(), {
       path: "/api/socketio",
       withCredentials: true,
       autoConnect: true,
@@ -19,12 +23,16 @@ function getSocket() {
   return shared;
 }
 
-function waitForConnect(socket: Socket, ms = 8000): Promise<void> {
+function waitForConnect(socket: Socket, ms = 10000): Promise<void> {
   if (socket.connected) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error("Socket connection timed out. Restart with: npm run dev"));
+      reject(
+        new Error(
+          "Socket connection timed out. Make sure npm run dev is still running.",
+        ),
+      );
     }, ms);
 
     const onConnect = () => {
@@ -87,7 +95,7 @@ export function useSocket() {
 
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error(`No response for ${event}. Is the server running via npm run dev?`));
+        reject(new Error(`No response for ${event}. Is npm run dev still open?`));
       }, 12000);
 
       s.emit(event, payload ?? {}, (res: T) => {

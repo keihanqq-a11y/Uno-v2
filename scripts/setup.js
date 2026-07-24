@@ -14,6 +14,8 @@ const sqliteEnv = `DATABASE_URL="file:./dev.db"
 JWT_SECRET="uno-premium-jwt-secret-change-in-production-d4af37"
 JWT_REFRESH_SECRET="uno-premium-refresh-secret-change-in-production"
 APP_URL="http://localhost:3000"
+NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
+SOCKET_PORT=3001
 SMTP_HOST="localhost"
 SMTP_PORT="1025"
 SMTP_FROM="UNO Premium <noreply@uno.local>"

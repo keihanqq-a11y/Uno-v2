@@ -56,7 +56,10 @@ if errorlevel 1 (
 echo.
 echo ========================================
 echo   KEEP THIS WINDOW OPEN
-echo   Open Chrome:
+echo   Wait until you see BOTH:
+echo     - Ready on http://localhost:3000
+echo     - UNO sockets ready on http://localhost:3001
+echo   Then open Chrome:
 echo   http://localhost:3000/play
 echo ========================================
 echo.
