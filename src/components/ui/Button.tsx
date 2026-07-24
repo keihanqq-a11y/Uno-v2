@@ -10,15 +10,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-[#ef4444] text-white hover:bg-[#f87171] font-semibold tracking-wide shadow-[0_0_24px_rgba(239,68,68,0.2)]",
+    "bg-[#ef4444] text-white hover:bg-[#dc2626] font-semibold tracking-wide shadow-[0_8px_28px_rgba(239,68,68,0.22)]",
   secondary:
-    "bg-[#141414] text-white border border-white/15 hover:border-[#ef4444]/50 hover:text-[#fca5a5] hover:bg-[#1a1a1a]",
-  ghost: "bg-transparent text-muted hover:text-[#f87171] hover:bg-[#ef4444]/8",
+    "bg-white/[0.04] text-white border border-white/12 hover:border-white/25 hover:bg-white/[0.07]",
+  ghost: "bg-transparent text-zinc-400 hover:text-white hover:bg-white/[0.04]",
   danger: "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25",
 };
 
 const sizes = {
-  sm: "h-9 px-3 text-sm",
+  sm: "h-9 px-3.5 text-sm",
   md: "h-11 px-5 text-sm",
   lg: "h-12 px-7 text-base",
 };
@@ -29,7 +29,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl transition-all duration-200",
+        "inline-flex items-center justify-center gap-2 rounded-2xl transition-all duration-200",
         "disabled:opacity-40 disabled:pointer-events-none",
         variants[variant],
         sizes[size],

@@ -89,6 +89,13 @@ code {
     inset 0 0 80px rgba(0, 0, 0, 0.65);
 }
 
+.lobby-stage {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 20%, rgba(239, 68, 68, 0.07), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 90%, rgba(255, 255, 255, 0.025), transparent 50%),
+    linear-gradient(180deg, #080808 0%, #050505 55%, #030303 100%);
+}
+
 .gold-rule {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.45), transparent);

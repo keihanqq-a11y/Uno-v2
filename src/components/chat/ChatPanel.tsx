@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 
-const EMOJIS = ["😀", "🔥", "👏", "😂", "😎", "💀", "🎯", "👑"];
+const EMOJIS = ["🔥", "👏", "😂", "😎", "💀", "🎯", "👑", "⚡"];
 
 export function ChatPanel({
   messages,
@@ -32,42 +32,65 @@ export function ChatPanel({
   };
 
   return (
-    <div className={cn("flex h-full flex-col border border-border bg-[#111]", className)}>
-      <div className="border-b border-border px-4 py-3">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-muted">Chat</p>
+    <div
+      className={cn(
+        "flex h-full flex-col overflow-hidden border border-white/10 bg-black/40",
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between px-4 py-3">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+          Table chat
+        </p>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto p-3 text-sm">
+
+      <div className="flex-1 space-y-2.5 overflow-y-auto px-4 pb-3 text-sm">
+        {messages.length === 0 && (
+          <p className="pt-6 text-center text-xs text-zinc-600">No messages yet</p>
+        )}
         {messages.map((m) => (
-          <div key={m.id} className={cn(m.isSystem && "text-center text-xs text-muted italic")}>
-            {!m.isSystem && (
-              <span className="text-gold mr-1.5">{m.username ?? "player"}:</span>
+          <div
+            key={m.id}
+            className={cn(
+              m.isSystem
+                ? "text-center text-[11px] italic text-zinc-600"
+                : "rounded-2xl bg-white/[0.03] px-3 py-2",
             )}
-            <span className={m.isEmoji ? "text-lg" : "text-text/90"}>{m.content}</span>
+          >
+            {!m.isSystem && (
+              <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-red-400/90">
+                {m.username ?? "player"}
+              </p>
+            )}
+            <span className={m.isEmoji ? "text-lg" : "text-zinc-200"}>{m.content}</span>
           </div>
         ))}
         <div ref={endRef} />
       </div>
-      <div className="flex gap-1 border-t border-border px-2 py-2">
+
+      <div className="flex gap-1 px-3 pb-2">
         {EMOJIS.map((e) => (
           <button
             key={e}
             type="button"
-            className="rounded px-1.5 py-1 text-sm hover:bg-card"
+            className="rounded-lg px-1.5 py-1 text-sm transition hover:bg-white/5"
             onClick={() => onSend(e, true)}
           >
             {e}
           </button>
         ))}
       </div>
-      <form onSubmit={submit} className="flex gap-2 border-t border-border p-2">
+
+      <form onSubmit={submit} className="flex gap-2 border-t border-white/5 p-3">
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Message…"
-          className="h-9"
+          placeholder="Say something…"
+          className="h-10 rounded-xl border-white/10 bg-white/[0.03]"
           maxLength={500}
         />
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" className="h-10 rounded-xl px-4">
           Send
         </Button>
       </form>

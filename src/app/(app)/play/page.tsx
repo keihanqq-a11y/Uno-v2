@@ -152,12 +152,11 @@ export default function PlayPage() {
             <UnoXLogo size="hero" priority className="animate-float" />
           </div>
 
-          <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
-            Become the table
+          <h1 className="mt-1 max-w-xl font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-[3.4rem] md:leading-[1.05]">
+            Own the table.
           </h1>
-          <p className="mt-4 max-w-md text-sm text-zinc-400 sm:text-base">
-            Host your own <span className="font-semibold text-white">UNO lobbies</span> and have your
-            friends play against you.
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
+            Private lobbies, live tables, and fast UnoX rounds — deposit once and run your room.
           </p>
 
           {!canPlay ? (
@@ -232,41 +231,37 @@ export default function PlayPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d]/90"
+          className="mt-10 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
         >
-          <div className="grid grid-cols-2 gap-px bg-white/10 sm:grid-cols-3 lg:grid-cols-6">
-            <MetaCell label="Players" value={`${maxPlayers}`} />
-            <MetaCell label="Lobby" value={mode === "PRIVATE" ? "Private" : "Public"} />
-            <MetaCell label="Bankroll" value={`$${balance.toFixed(0)}`} active />
-            <MetaCell label="Bots" value={`${botCount}`} />
-            <MetaCell label="Queue" value={`${queueSize}p`} />
-            <MetaCell label="Socket" value={connected ? "Live" : "…"} />
-          </div>
-
-          <div className="grid gap-6 border-t border-white/10 p-5 md:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                Lobby settings
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+                Table size
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[2, 3, 4, 5].map((n) => (
                   <Chip key={n} active={maxPlayers === n} onClick={() => setMaxPlayers(n)}>
-                    {n}
+                    {n} seats
                   </Chip>
                 ))}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-4 flex gap-2">
                 {(["PRIVATE", "PUBLIC"] as const).map((m) => (
                   <Chip key={m} active={mode === m} onClick={() => setMode(m)}>
-                    {m}
+                    {m === "PRIVATE" ? "Private" : "Public"}
                   </Chip>
                 ))}
               </div>
+              <p className="mt-3 text-xs text-zinc-600">
+                Bankroll <span className="text-zinc-300">${balance.toFixed(2)}</span>
+                {" · "}
+                {connected ? "Live" : "Connecting…"}
+              </p>
             </div>
 
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                Quick play
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+                Jump in
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-zinc-500">Bots</span>
@@ -333,29 +328,6 @@ function PlusLobbyIcon() {
   );
 }
 
-function MetaCell({
-  label,
-  value,
-  active,
-}: {
-  label: string;
-  value: string;
-  active?: boolean;
-}) {
-  return (
-    <div
-      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-[#f87171]" : "text-zinc-400"}`}
-    >
-      <p
-        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-[#ef4444]" : "text-zinc-500"}`}
-      >
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function Chip({
   active,
   onClick,
@@ -369,10 +341,10 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`h-9 min-w-9 rounded-lg border px-3 text-xs font-semibold transition ${
+      className={`h-9 rounded-full border px-3.5 text-xs font-semibold transition ${
         active
           ? "border-[#ef4444] bg-[#ef4444] text-white"
-          : "border-white/15 text-zinc-400 hover:border-[#ef4444]/45 hover:text-[#fca5a5]"
+          : "border-white/12 text-zinc-400 hover:border-white/25 hover:text-white"
       }`}
     >
       {children}
