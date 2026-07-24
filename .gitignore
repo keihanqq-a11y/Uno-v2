@@ -41,6 +41,12 @@ yarn-error.log*
 /public/avatars/*
 !/public/avatars/.gitkeep
 
+# sqlite
+/prisma/*.db
+/prisma/*.db-journal
+*.db
+*.db-journal
+
 /src/generated/prisma
 .agents/
 .claude/

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/Label";
 import { Panel } from "@/components/ui/Panel";
 
 export default function PlayPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, error: authError, refresh } = useAuth();
   const router = useRouter();
   const { connected, emit, socket } = useSocket();
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -81,8 +81,28 @@ export default function PlayPage() {
     setQueueing(false);
   };
 
-  if (loading || !user) {
-    return <div className="p-10 text-muted">Starting guest session…</div>;
+  if (loading) {
+    return <div className="p-10 text-muted">Starting…</div>;
+  }
+
+  if (authError || !user) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-danger">{authError ?? "Could not start a guest session."}</p>
+        <p className="mt-3 text-sm text-muted">
+          In PowerShell, from the project folder run:
+          <br />
+          <code className="text-gold">npx prisma db push</code>
+          <br />
+          <code className="text-gold">npm run db:seed</code>
+          <br />
+          then <code className="text-gold">npm run dev</code> again.
+        </p>
+        <Button className="mt-6" onClick={() => void refresh()}>
+          Try again
+        </Button>
+      </div>
+    );
   }
 
   return (

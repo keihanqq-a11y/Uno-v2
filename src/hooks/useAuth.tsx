@@ -17,35 +17,42 @@ export interface User {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  error: string | null;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function ensureGuest(): Promise<User | null> {
+async function ensureGuest(): Promise<User> {
   const me = await fetch("/api/auth/me");
   if (me.ok) {
     const data = await me.json();
-    return data.user ?? null;
+    if (data.user) return data.user as User;
   }
 
   const guest = await fetch("/api/auth/guest", { method: "POST" });
-  if (!guest.ok) return null;
-  const data = await guest.json();
-  return data.user ?? null;
+  const data = await guest.json().catch(() => ({}));
+  if (!guest.ok || !data.user) {
+    throw new Error(data.error ?? "Could not start guest session. Is the database set up?");
+  }
+  return data.user as User;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const next = await ensureGuest();
       setUser(next);
-    } catch {
+    } catch (e) {
       setUser(null);
+      setError(e instanceof Error ? e.message : "Failed to start");
     } finally {
       setLoading(false);
     }
@@ -57,14 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    // Immediately start a fresh guest session instead of forcing login
     setLoading(true);
     await refresh();
     window.location.href = "/play";
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, refresh, logout }}>
+    <AuthContext.Provider value={{ user, loading, error, refresh, logout }}>
       {children}
     </AuthContext.Provider>
   );
