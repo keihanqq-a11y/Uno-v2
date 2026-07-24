@@ -349,6 +349,12 @@ export function playCard(
     state.currentColor = card.color;
   }
 
+  // Immediate wild4 plays (with a chosen color) still apply the +4 stack.
+  // Deferred wild4 already incremented drawStack before returning early.
+  if (card.value === "wild4" && chosenColor && chosenColor !== "wild") {
+    state.drawStack += 4;
+  }
+
   markUnoState(player);
   state.lastAction = {
     type: "play",

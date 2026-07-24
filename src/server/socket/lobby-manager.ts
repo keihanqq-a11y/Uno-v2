@@ -119,11 +119,51 @@ export function leaveLobby(
   }
 
   if (lobby.hostId === userId) {
-    lobby.hostId = lobby.players[0].userId;
-    pushSystem(lobby, `${lobby.players[0].displayName} is now the host`);
+    const nextHost =
+      lobby.players.find((p) => !p.isBot && !p.username.startsWith("bot_")) ??
+      lobby.players[0];
+    lobby.hostId = nextHost.userId;
+    pushSystem(lobby, `${nextHost.displayName} is now the host`);
   }
 
   return lobby;
+}
+
+export function addBotPlayer(
+  lobbyId: string,
+  bot: LobbyPlayer,
+): { ok: true; lobby: LobbyState } | { ok: false; error: string } {
+  const lobby = lobbies.get(lobbyId);
+  if (!lobby) return { ok: false, error: "Lobby not found" };
+  if (lobby.status !== "WAITING") return { ok: false, error: "Game already started" };
+  if (lobby.players.length >= lobby.maxPlayers) {
+    return { ok: false, error: "Lobby is full" };
+  }
+
+  lobby.players.push({
+    ...bot,
+    ready: true,
+    connected: true,
+    isSpectator: false,
+    isBot: true,
+  });
+  pushSystem(lobby, `${bot.displayName} joined the table`);
+  return { ok: true, lobby };
+}
+
+export function removeBotPlayer(
+  lobbyId: string,
+  botUserId: string,
+): { ok: true; lobby: LobbyState } | { ok: false; error: string } {
+  const lobby = lobbies.get(lobbyId);
+  if (!lobby) return { ok: false, error: "Lobby not found" };
+  const bot = lobby.players.find(
+    (p) => p.userId === botUserId && (p.isBot || p.username.startsWith("bot_")),
+  );
+  if (!bot) return { ok: false, error: "Bot not found" };
+  lobby.players = lobby.players.filter((p) => p.userId !== botUserId);
+  pushSystem(lobby, `${bot.displayName} left the table`);
+  return { ok: true, lobby };
 }
 
 export function setReady(lobbyId: string, userId: string, ready: boolean) {
@@ -187,7 +227,10 @@ export function resetLobbyForRematch(lobbyId: string) {
   if (!lobby) return null;
   lobby.status = "WAITING";
   lobby.gameId = null;
-  for (const p of lobby.players) p.ready = false;
+  for (const p of lobby.players) {
+    // Bots stay ready for rematch; humans must ready up again
+    p.ready = !!(p.isBot || p.username.startsWith("bot_"));
+  }
   pushSystem(lobby, "Rematch ready — players must ready up again");
   return lobby;
 }

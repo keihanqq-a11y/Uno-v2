@@ -5,11 +5,14 @@ import {
   chooseColor,
   createGame,
   drawCards,
+  getCurrentPlayer,
   handleTurnTimeout,
   playCard,
   setPlayerConnected,
   toPublicView,
 } from "@/server/game/engine";
+import { decideBotAction } from "@/server/game/bot";
+import { isBotUserId, rememberBotFromUsername } from "@/server/socket/bots";
 import type { CardColor, ChatMessagePayload, GameState, PublicGameView } from "@/types/game";
 import { sanitizeChat } from "@/lib/utils";
 
@@ -17,11 +20,21 @@ interface ManagedGame {
   state: GameState;
   chat: ChatMessagePayload[];
   turnTimer: ReturnType<typeof setTimeout> | null;
+  botTimer: ReturnType<typeof setTimeout> | null;
   onStateChange?: (state: GameState) => void;
 }
 
 const games = new Map<string, ManagedGame>();
 const userToGame = new Map<string, string>();
+
+function isBot(userId: string, username?: string) {
+  if (isBotUserId(userId)) return true;
+  if (username?.startsWith("bot_")) {
+    rememberBotFromUsername(userId, username);
+    return true;
+  }
+  return false;
+}
 
 export function getGame(id: string): ManagedGame | undefined {
   return games.get(id);
@@ -67,6 +80,7 @@ export function startGame(params: {
     state,
     chat: [],
     turnTimer: null,
+    botTimer: null,
     onStateChange: params.onStateChange,
   };
 
@@ -76,6 +90,7 @@ export function startGame(params: {
   }
 
   armTurnTimer(id);
+  scheduleBots(id);
   return state;
 }
 
@@ -96,7 +111,131 @@ function armTurnTimer(gameId: string) {
     handleTurnTimeout(current.state);
     emitChange(gameId);
     armTurnTimer(gameId);
+    scheduleBots(gameId);
   }, g.state.turnTimerSec * 1000);
+}
+
+/** Queue a bot think/action if a bot needs to act. */
+export function scheduleBots(gameId: string) {
+  const g = games.get(gameId);
+  if (!g) return;
+  if (g.botTimer) clearTimeout(g.botTimer);
+
+  if (g.state.phase === "finished" || g.state.phase === "waiting") return;
+
+  const needsBot = botShouldAct(g.state);
+  if (!needsBot) return;
+
+  const delay = 700 + Math.floor(Math.random() * 900);
+  g.botTimer = setTimeout(() => {
+    runBotStep(gameId);
+  }, delay);
+}
+
+function botShouldAct(state: GameState): boolean {
+  if (state.phase === "choosing_color" && state.pendingColorChooser) {
+    const chooser = state.players.find((p) => p.id === state.pendingColorChooser);
+    return !!chooser && isBot(chooser.userId, chooser.username);
+  }
+
+  // Any bot can catch UNO
+  const vulnerable = state.players.some(
+    (p) => p.hand.length === 1 && p.unoVulnerable && !p.calledUno,
+  );
+  if (vulnerable && state.players.some((p) => isBot(p.userId, p.username))) {
+    return true;
+  }
+
+  if (state.phase !== "playing") return false;
+  const current = getCurrentPlayer(state);
+  return !!current && isBot(current.userId, current.username);
+}
+
+function runBotStep(gameId: string) {
+  const g = games.get(gameId);
+  if (!g) return;
+  if (g.state.phase === "finished") return;
+
+  // Prefer a bot that has something to do: color choice, catch, or current turn
+  const actors = [...g.state.players].filter((p) => isBot(p.userId, p.username));
+  if (!actors.length) return;
+
+  // Color choice first
+  if (g.state.phase === "choosing_color" && g.state.pendingColorChooser) {
+    const chooser = g.state.players.find((p) => p.id === g.state.pendingColorChooser);
+    if (chooser && isBot(chooser.userId, chooser.username)) {
+      const action = decideBotAction(g.state, chooser);
+      if (action.type === "choose_color") {
+        applyChooseColor(gameId, chooser.userId, action.color);
+      }
+      return;
+    }
+  }
+
+  // Catch UNO with a random bot
+  const prey = g.state.players.find(
+    (p) => p.hand.length === 1 && p.unoVulnerable && !p.calledUno,
+  );
+  if (prey) {
+    const catcher = actors.find((b) => b.id !== prey.id);
+    if (catcher && Math.random() < 0.8) {
+      applyCatchUno(gameId, catcher.userId, prey.id);
+      return;
+    }
+  }
+
+  const current = getCurrentPlayer(g.state);
+  if (!current || !isBot(current.userId, current.username)) {
+    scheduleBots(gameId);
+    return;
+  }
+
+  // Call UNO if sitting on one card
+  if (current.hand.length === 1 && !current.calledUno) {
+    applyCallUno(gameId, current.userId);
+    // Continue to play/draw on same think cycle after short delay
+    scheduleBots(gameId);
+    return;
+  }
+
+  const action = decideBotAction(g.state, current);
+  if (action.type === "play") {
+    const beforeCount = current.hand.length;
+    const result = applyPlay(
+      gameId,
+      current.userId,
+      action.cardId,
+      action.chosenColor,
+    );
+    if (result.ok && beforeCount === 2) {
+      // Played down to 1 — call UNO next tick
+      const updated = games.get(gameId)?.state.players.find((p) => p.id === current.id);
+      if (updated && updated.hand.length === 1 && !updated.calledUno) {
+        applyCallUno(gameId, current.userId);
+      }
+    }
+    return;
+  }
+
+  if (action.type === "draw") {
+    applyDraw(gameId, current.userId);
+    return;
+  }
+
+  if (action.type === "call_uno") {
+    applyCallUno(gameId, current.userId);
+    scheduleBots(gameId);
+    return;
+  }
+
+  if (action.type === "catch_uno") {
+    applyCatchUno(gameId, current.userId, action.targetPlayerId);
+    return;
+  }
+
+  if (action.type === "choose_color") {
+    applyChooseColor(gameId, current.userId, action.color);
+  }
 }
 
 export function viewFor(gameId: string, userId: string | null): PublicGameView | null {
@@ -122,6 +261,7 @@ export function applyPlay(
   g.state = result.state;
   emitChange(gameId);
   armTurnTimer(gameId);
+  scheduleBots(gameId);
   return { ok: true as const, state: g.state };
 }
 
@@ -137,6 +277,7 @@ export function applyDraw(gameId: string, userId: string) {
   g.state = result.state;
   emitChange(gameId);
   armTurnTimer(gameId);
+  scheduleBots(gameId);
   return { ok: true as const, state: g.state, drawn: result.drawn };
 }
 
@@ -156,6 +297,7 @@ export function applyChooseColor(
   g.state = result.state;
   emitChange(gameId);
   armTurnTimer(gameId);
+  scheduleBots(gameId);
   return { ok: true as const, state: g.state };
 }
 
@@ -169,6 +311,7 @@ export function applyCallUno(gameId: string, userId: string) {
   if (!result.ok) return result;
   g.state = result.state;
   emitChange(gameId);
+  scheduleBots(gameId);
   return { ok: true as const, state: g.state };
 }
 
@@ -182,6 +325,7 @@ export function applyCatchUno(gameId: string, catcherUserId: string, targetPlaye
   if (!result.ok) return result;
   g.state = result.state;
   emitChange(gameId);
+  scheduleBots(gameId);
   return { ok: true as const, state: g.state, penalty: result.penalty };
 }
 
@@ -205,6 +349,8 @@ export function reconnectPlayer(gameId: string, userId: string) {
 }
 
 export function disconnectPlayer(userId: string) {
+  // Bots never disconnect
+  if (isBot(userId)) return null;
   const gameId = userToGame.get(userId);
   if (!gameId) return null;
   const g = games.get(gameId);
@@ -238,6 +384,7 @@ export function endAndCleanup(gameId: string) {
   const g = games.get(gameId);
   if (!g) return;
   if (g.turnTimer) clearTimeout(g.turnTimer);
+  if (g.botTimer) clearTimeout(g.botTimer);
   for (const p of g.state.players) userToGame.delete(p.userId);
   for (const p of g.state.spectators) userToGame.delete(p.userId);
   games.delete(gameId);

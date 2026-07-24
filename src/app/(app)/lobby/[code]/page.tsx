@@ -110,23 +110,47 @@ export default function LobbyPage() {
                         Host
                       </span>
                     )}
+                    {(p.isBot || p.username.startsWith("bot_")) && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider text-muted">
+                        Bot
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted">@{p.username}</p>
                 </div>
-                <span className={`text-xs ${p.ready ? "text-success" : "text-muted"}`}>
-                  {p.ready ? "Ready" : "Not ready"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${p.ready ? "text-success" : "text-muted"}`}>
+                    {p.ready ? "Ready" : "Not ready"}
+                  </span>
+                  {isHost && (p.isBot || p.username.startsWith("bot_")) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void emit("lobby:remove_bot", { botUserId: p.userId })}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            {me && (
+            {me && !(me.isBot) && (
               <Button
                 variant={me.ready ? "secondary" : "primary"}
                 onClick={() => void emit("lobby:ready", { ready: !me.ready })}
               >
                 {me.ready ? "Unready" : "Ready"}
+              </Button>
+            )}
+            {isHost && lobby.players.length < lobby.maxPlayers && (
+              <Button
+                variant="secondary"
+                onClick={() => void emit("lobby:add_bot", {})}
+              >
+                Add bot
               </Button>
             )}
             {isHost && (

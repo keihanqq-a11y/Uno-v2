@@ -151,6 +151,7 @@ export interface LobbyPlayer {
   ready: boolean;
   connected: boolean;
   isSpectator: boolean;
+  isBot?: boolean;
 }
 
 export interface ChatMessagePayload {

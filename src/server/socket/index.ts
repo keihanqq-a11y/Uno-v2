@@ -5,6 +5,7 @@ import { recordMatchResult } from "@/lib/rewards";
 import { enqueue, dequeue } from "@/server/matchmaking/queue";
 import * as lobbies from "@/server/socket/lobby-manager";
 import * as games from "@/server/socket/game-manager";
+import { botLobbyPlayer, createBotUser, rememberBotFromUsername } from "@/server/socket/bots";
 import type { CardColor } from "@/types/game";
 import { toPublicView } from "@/server/game/engine";
 
@@ -238,6 +239,114 @@ export function initSocketServer(httpServer: HttpServer) {
       if (lobby) broadcastLobby(lobby.id);
     });
 
+    socket.on("lobby:add_bot", async (_payload, cb) => {
+      const lobbyId = socket.data.lobbyId;
+      if (!lobbyId) return cb?.({ ok: false, error: "Not in a lobby" });
+      const lobby = lobbies.getLobby(lobbyId);
+      if (!lobby) return cb?.({ ok: false, error: "Lobby not found" });
+      if (lobby.hostId !== user.id) return cb?.({ ok: false, error: "Only host can add bots" });
+      if (lobby.players.length >= lobby.maxPlayers) {
+        return cb?.({ ok: false, error: "Lobby is full" });
+      }
+
+      try {
+        const slot = lobby.players.filter((p) => p.isBot || p.username.startsWith("bot_")).length;
+        const bot = await createBotUser(slot);
+        const result = lobbies.addBotPlayer(lobbyId, botLobbyPlayer(bot));
+        if (!result.ok) return cb?.(result);
+        broadcastLobby(lobbyId);
+        cb?.({ ok: true, lobby: result.lobby });
+      } catch (e) {
+        console.error(e);
+        cb?.({ ok: false, error: "Could not create bot" });
+      }
+    });
+
+    socket.on("lobby:remove_bot", (payload, cb) => {
+      const lobbyId = socket.data.lobbyId;
+      if (!lobbyId) return cb?.({ ok: false, error: "Not in a lobby" });
+      const lobby = lobbies.getLobby(lobbyId);
+      if (!lobby) return cb?.({ ok: false, error: "Lobby not found" });
+      if (lobby.hostId !== user.id) return cb?.({ ok: false, error: "Only host can remove bots" });
+      const botUserId = String(payload?.botUserId ?? "");
+      const result = lobbies.removeBotPlayer(lobbyId, botUserId);
+      if (!result.ok) return cb?.(result);
+      broadcastLobby(lobbyId);
+      cb?.({ ok: true, lobby: result.lobby });
+    });
+
+    /** One-click: create lobby, fill with bots, start match. */
+    socket.on("play:vs_bots", async (payload, cb) => {
+      const botCount = Math.min(4, Math.max(1, Number(payload?.bots ?? 3)));
+      const maxPlayers = botCount + 1;
+
+      try {
+        const lobby = lobbies.createLobby({
+          hostId: user.id,
+          host: {
+            userId: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+            ready: true,
+            connected: true,
+            isSpectator: false,
+          },
+          maxPlayers,
+          mode: "PRIVATE",
+          allowSpectators: false,
+        });
+
+        for (let i = 0; i < botCount; i++) {
+          const bot = await createBotUser(i);
+          lobbies.addBotPlayer(lobby.id, botLobbyPlayer(bot));
+        }
+
+        const fresh = lobbies.getLobby(lobby.id)!;
+        for (const p of fresh.players) {
+          if (p.isBot || p.username.startsWith("bot_")) {
+            rememberBotFromUsername(p.userId, p.username);
+          }
+        }
+
+        const state = games.startGame({
+          lobbyId: lobby.id,
+          hostId: lobby.hostId,
+          players: fresh.players.map((p) => ({
+            userId: p.userId,
+            username: p.username,
+            displayName: p.displayName,
+            avatarUrl: p.avatarUrl,
+          })),
+          maxPlayers,
+          onStateChange: async (s) => {
+            broadcastGame(s.id);
+            if (s.phase === "finished") {
+              await persistGameResults(s.id).catch(console.error);
+              io?.to(gameRoom(s.id)).emit("game:finished", {
+                winnerId: s.winnerId,
+                lobbyCode: lobby.code,
+              });
+            }
+          },
+        });
+
+        lobbies.markLobbyInGame(lobby.id, state.id);
+        socket.data.lobbyId = lobby.id;
+        socket.data.gameId = state.id;
+        socket.join(lobbyRoom(lobby.id));
+        socket.join(gameRoom(state.id));
+
+        broadcastLobby(lobby.id);
+        broadcastGame(state.id);
+        socket.emit("game:started", { gameId: state.id });
+        cb?.({ ok: true, gameId: state.id, code: lobby.code });
+      } catch (e) {
+        console.error(e);
+        cb?.({ ok: false, error: "Could not start bot match" });
+      }
+    });
+
     socket.on("lobby:chat", (payload, cb) => {
       const lobbyId = socket.data.lobbyId;
       if (!lobbyId) return cb?.({ ok: false, error: "Not in a lobby" });
@@ -285,6 +394,12 @@ export function initSocketServer(httpServer: HttpServer) {
       if (!lobby) return cb?.({ ok: false, error: "Lobby not found" });
       if (lobby.hostId !== user.id) return cb?.({ ok: false, error: "Only host can start" });
       if (lobby.players.length < 2) return cb?.({ ok: false, error: "Need at least 2 players" });
+
+      for (const p of lobby.players) {
+        if (p.isBot || p.username.startsWith("bot_")) {
+          rememberBotFromUsername(p.userId, p.username);
+        }
+      }
 
       const state = games.startGame({
         lobbyId: lobby.id,

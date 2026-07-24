@@ -18,6 +18,8 @@ export default function PlayPage() {
   const [code, setCode] = useState("");
   const [queueSize, setQueueSize] = useState(4);
   const [queueing, setQueueing] = useState(false);
+  const [botCount, setBotCount] = useState(3);
+  const [startingBots, setStartingBots] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,6 +83,20 @@ export default function PlayPage() {
     setQueueing(false);
   };
 
+  const playVsBots = async () => {
+    setError(null);
+    setStartingBots(true);
+    const res = await emit<{ ok: boolean; gameId?: string; error?: string }>("play:vs_bots", {
+      bots: botCount,
+    });
+    setStartingBots(false);
+    if (!res.ok || !res.gameId) {
+      setError(res.error ?? "Could not start bot match");
+      return;
+    }
+    router.push(`/game/${res.gameId}`);
+  };
+
   if (loading) {
     return <div className="p-10 text-muted">Starting…</div>;
   }
@@ -112,6 +128,35 @@ export default function PlayPage() {
       <p className="mt-2 text-sm text-muted">
         Socket {connected ? "connected" : "connecting…"} · 2–5 players
       </p>
+
+      <Panel className="mt-8 border-gold/30 p-6">
+        <h2 className="text-lg text-gold">Play vs bots</h2>
+        <p className="mt-1 text-sm text-muted">
+          Instant solo match — bots play automatically.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="text-xs uppercase tracking-wider text-muted">Bots</span>
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setBotCount(n)}
+              className={`h-10 w-10 rounded-md border text-sm ${
+                botCount === n ? "border-gold text-gold" : "border-border text-muted"
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+          <Button
+            className="ml-auto"
+            onClick={() => void playVsBots()}
+            disabled={!connected || startingBots}
+          >
+            {startingBots ? "Starting…" : "Start vs bots"}
+          </Button>
+        </div>
+      </Panel>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <Panel className="p-6">
