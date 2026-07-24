@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { Outfit, Space_Grotesk } from "next/font/google";
+import { Fraunces, Manrope } from "next/font/google";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AppNav } from "@/components/layout/AppNav";
 import "./globals.css";
 
-const display = Outfit({
+/** Stick with fonts already used in this project to avoid Google Font fetch 500s. */
+const display = Fraunces({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["500", "600", "700", "800"],
+  weight: ["400", "600", "700"],
 });
 
-const body = Space_Grotesk({
+const body = Manrope({
   subsets: ["latin"],
   variable: "--font-body",
   weight: ["400", "500", "600", "700"],

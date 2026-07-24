@@ -68,7 +68,8 @@ try {
   run("npx tsx scripts/seed.ts");
 
   log("\n✅ Setup complete.");
-  log("Next:  npm run dev");
+  log("IMPORTANT: Stop any running npm run dev (Ctrl+C), then start fresh:");
+  log("  npm run dev");
   log("Then open: http://localhost:3000/play\n");
 } catch (err) {
   console.error("\n❌ Setup failed.");

@@ -55,10 +55,19 @@ export async function POST() {
     });
   } catch (err) {
     console.error("[guest]", err);
+    const detail =
+      err instanceof Error ? err.message : "Unknown database error";
+    const needsSchema =
+      detail.includes("balanceUsd") ||
+      detail.includes("Unknown field") ||
+      detail.includes("does not exist") ||
+      detail.includes("P2021") ||
+      detail.includes("P2022");
     return NextResponse.json(
       {
-        error:
-          "Database not ready. Run: npx prisma db push && npm run db:seed",
+        error: needsSchema
+          ? "Database schema outdated. Stop the server (Ctrl+C), run: npx prisma db push && npx prisma generate && npm run db:seed — then npm run dev again."
+          : `Database not ready. Stop the server (Ctrl+C), run: npm run setup — then npm run dev again. (${detail.slice(0, 120)})`,
       },
       { status: 500 },
     );

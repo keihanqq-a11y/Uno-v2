@@ -1,11 +1,11 @@
 @echo off
 setlocal
-title UNO Premium Clean Start
+title UnoX Clean Start
 cd /d "%~dp0"
 
 echo.
 echo ========================================
-echo   UNO Premium - CLEAN START
+echo   UnoX - CLEAN START
 echo ========================================
 echo Folder: %CD%
 echo.
@@ -28,7 +28,12 @@ if %NODEMAJOR% LSS 20 (
 )
 
 echo.
-echo Deleting old node_modules (important after Node upgrade)...
+echo Stopping any old Node servers on 3000/3001...
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%p >nul 2>nul
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3001" ^| findstr "LISTENING"') do taskkill /F /PID %%p >nul 2>nul
+
+echo.
+echo Deleting old build + DB caches...
 if exist node_modules rmdir /s /q node_modules
 if exist package-lock.json del /f /q package-lock.json
 if exist .next rmdir /s /q .next
@@ -58,7 +63,7 @@ echo ========================================
 echo   KEEP THIS WINDOW OPEN
 echo   Wait until you see BOTH:
 echo     - Ready on http://localhost:3000
-echo     - UNO sockets ready on http://localhost:3001
+echo     - sockets ready on http://localhost:3001
 echo   Then open Chrome:
 echo   http://localhost:3000/play
 echo ========================================
