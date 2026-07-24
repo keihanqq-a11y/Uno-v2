@@ -16,10 +16,10 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/8 bg-black/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-[#d4af37]/15 bg-black/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
         <Link href="/play" className="group flex shrink-0 items-center gap-2">
-          <span className="font-display text-2xl font-extrabold tracking-tight text-white transition group-hover:text-neutral-200">
+          <span className="font-display text-2xl font-extrabold tracking-tight text-[#e8c56a] transition group-hover:text-[#f0d78a]">
             UnoX
           </span>
         </Link>
@@ -31,7 +31,9 @@ export function AppNav() {
               href={l.href}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm transition-colors",
-                pathname.startsWith(l.href) ? "text-white" : "text-muted hover:text-white",
+                pathname.startsWith(l.href)
+                  ? "text-[#e8c56a]"
+                  : "text-muted hover:text-[#e8c56a]/90",
               )}
             >
               {l.label}
@@ -42,7 +44,7 @@ export function AppNav() {
               href="/admin"
               className={cn(
                 "rounded-lg px-3 py-2 text-sm",
-                pathname.startsWith("/admin") ? "text-white" : "text-muted hover:text-white",
+                pathname.startsWith("/admin") ? "text-[#e8c56a]" : "text-muted hover:text-[#e8c56a]/90",
               )}
             >
               Admin
@@ -55,7 +57,7 @@ export function AppNav() {
           {!loading && user && (
             <Link
               href={`/profile/${user.username}`}
-              className="hidden h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#141414] text-xs font-semibold text-white sm:flex"
+              className="hidden h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-[#d4af37]/25 bg-[#141414] text-xs font-semibold text-[#e8c56a] sm:flex"
               title={user.displayName}
             >
               {user.avatarUrl ? (

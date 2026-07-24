@@ -147,19 +147,19 @@ export default function PlayPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <div className="mb-5 flex items-end gap-3 text-white/70 sm:gap-4">
-            <span className="text-lg opacity-45">♦</span>
-            <span className="text-lg opacity-45">♣</span>
-            <span className="animate-float text-3xl text-white">♠</span>
-            <span className="text-lg opacity-45">♥</span>
-            <span className="text-lg opacity-45">♦</span>
+          <div className="mb-5 flex items-end gap-3 sm:gap-4">
+            <span className="text-lg text-[#c62828]/55">♦</span>
+            <span className="text-lg text-white/40">♣</span>
+            <span className="animate-float text-3xl text-[#e8c56a]">♠</span>
+            <span className="text-lg text-[#c62828]/55">♥</span>
+            <span className="text-lg text-white/40">♦</span>
           </div>
 
           <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
             Become the table
           </h1>
           <p className="mt-4 max-w-md text-sm text-zinc-400 sm:text-base">
-            Host your own <span className="font-semibold text-white">UNO lobbies</span> and have your
+            Host your own <span className="font-semibold text-[#e8c56a]">UNO lobbies</span> and have your
             friends play against you.
           </p>
 
@@ -171,7 +171,7 @@ export default function PlayPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => openWallet("Deposit")}
-              className="mt-6 rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm text-zinc-300 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+              className="mt-6 rounded-full border border-[#d4af37]/35 bg-[#d4af37]/10 px-5 py-2.5 text-sm text-[#e8c56a] transition hover:border-[#d4af37]/55 hover:bg-[#d4af37]/16"
             >
               Balance is <span className="font-semibold text-white">$0.00</span> — deposit to play
             </motion.button>

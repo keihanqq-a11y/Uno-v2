@@ -31,11 +31,11 @@ export function WalletBar() {
   return (
     <>
       <div className="relative flex items-center">
-        <div className="flex overflow-hidden rounded-xl border border-white/12 bg-[#111]">
+        <div className="flex overflow-hidden rounded-xl border border-[#d4af37]/25 bg-[#111]">
           <button
             type="button"
             onClick={() => openWalletTab("Deposit")}
-            className="px-3 py-2 text-sm font-semibold tabular-nums text-white transition hover:bg-white/5 sm:px-3.5"
+            className="px-3 py-2 text-sm font-semibold tabular-nums text-white transition hover:bg-[#d4af37]/8 sm:px-3.5"
           >
             ${" "}
             {balance.toLocaleString("en-US", {
@@ -46,7 +46,7 @@ export function WalletBar() {
           <button
             type="button"
             onClick={() => openWalletTab("Deposit")}
-            className="grid h-9 w-9 place-items-center bg-white text-black transition hover:bg-neutral-200 sm:h-10 sm:w-10"
+            className="grid h-9 w-9 place-items-center bg-[#d4af37] text-black transition hover:bg-[#e0c04a] sm:h-10 sm:w-10"
             aria-label="Open wallet"
             title="Wallet"
           >
