@@ -148,18 +148,18 @@ export default function PlayPage() {
           transition={{ duration: 0.45 }}
         >
           <div className="mb-5 flex items-end gap-3 sm:gap-4">
-            <span className="text-lg text-[#c62828]/55">♦</span>
-            <span className="text-lg text-white/40">♣</span>
-            <span className="animate-float text-3xl text-[#e8c56a]">♠</span>
-            <span className="text-lg text-[#c62828]/55">♥</span>
-            <span className="text-lg text-white/40">♦</span>
+            <span className="text-lg text-[#ef4444]/70">♦</span>
+            <span className="text-lg text-white/45">♣</span>
+            <span className="animate-float text-3xl text-white">♠</span>
+            <span className="text-lg text-[#ef4444]/70">♥</span>
+            <span className="text-lg text-white/45">♦</span>
           </div>
 
           <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
             Become the table
           </h1>
           <p className="mt-4 max-w-md text-sm text-zinc-400 sm:text-base">
-            Host your own <span className="font-semibold text-[#e8c56a]">UNO lobbies</span> and have your
+            Host your own <span className="font-semibold text-white">UNO lobbies</span> and have your
             friends play against you.
           </p>
 
@@ -171,7 +171,7 @@ export default function PlayPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => openWallet("Deposit")}
-              className="mt-6 rounded-full border border-[#d4af37]/35 bg-[#d4af37]/10 px-5 py-2.5 text-sm text-[#e8c56a] transition hover:border-[#d4af37]/55 hover:bg-[#d4af37]/16"
+              className="mt-6 rounded-full border border-[#ef4444]/40 bg-[#ef4444]/10 px-5 py-2.5 text-sm text-[#fca5a5] transition hover:border-[#ef4444]/60 hover:bg-[#ef4444]/16"
             >
               Balance is <span className="font-semibold text-white">$0.00</span> — deposit to play
             </motion.button>
@@ -347,10 +347,10 @@ function MetaCell({
 }) {
   return (
     <div
-      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-[#e8c56a]" : "text-zinc-400"}`}
+      className={`bg-[#0d0d0d] px-3 py-3 text-center ${active ? "text-[#f87171]" : "text-zinc-400"}`}
     >
       <p
-        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-[#e8c56a]" : "text-zinc-500"}`}
+        className={`text-[10px] uppercase tracking-[0.14em] ${active ? "text-[#ef4444]" : "text-zinc-500"}`}
       >
         {label}
       </p>
@@ -374,8 +374,8 @@ function Chip({
       onClick={onClick}
       className={`h-9 min-w-9 rounded-lg border px-3 text-xs font-semibold transition ${
         active
-          ? "border-[#d4af37] bg-[#d4af37] text-black"
-          : "border-white/15 text-zinc-400 hover:border-[#d4af37]/40 hover:text-[#e8c56a]"
+          ? "border-[#ef4444] bg-[#ef4444] text-white"
+          : "border-white/15 text-zinc-400 hover:border-[#ef4444]/45 hover:text-[#fca5a5]"
       }`}
     >
       {children}

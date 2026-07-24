@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #070708;
-  --bg-secondary: #0e0e10;
-  --card: #141416;
-  --border: #2a2a2e;
-  --gold: #d4af37;
-  --gold-dim: #a6862a;
-  --gold-soft: rgba(212, 175, 55, 0.12);
-  --accent: #e8c56a;
-  --accent-muted: #b89a4a;
+  --bg: #050505;
+  --bg-secondary: #0c0c0c;
+  --card: #121212;
+  --border: #2a2a2a;
+  --gold: #ef4444;
+  --gold-dim: #b91c1c;
+  --gold-soft: rgba(239, 68, 68, 0.12);
+  --accent: #f87171;
+  --accent-muted: #dc2626;
   --text: #f5f5f5;
   --text-secondary: #9a9a9a;
   --danger: #ef4444;
@@ -53,38 +53,38 @@ body {
 }
 
 ::selection {
-  background: rgba(212, 175, 55, 0.35);
+  background: rgba(239, 68, 68, 0.4);
   color: #fff;
 }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.9em;
-  background: rgba(212, 175, 55, 0.1);
-  color: #f0e0a8;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
   padding: 0.15em 0.45em;
   border-radius: 0.35rem;
-  border: 1px solid rgba(212, 175, 55, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .atmosphere {
   background:
-    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 175, 55, 0.09), transparent 55%),
-    radial-gradient(ellipse 45% 35% at 85% 90%, rgba(198, 40, 40, 0.05), transparent 50%),
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(239, 68, 68, 0.08), transparent 55%),
+    radial-gradient(ellipse 45% 35% at 85% 90%, rgba(255, 255, 255, 0.03), transparent 50%),
     var(--bg);
 }
 
 .unox-hero {
   background:
-    radial-gradient(ellipse 70% 50% at 50% 32%, rgba(212, 175, 55, 0.1), transparent 58%),
-    radial-gradient(ellipse 40% 30% at 20% 80%, rgba(21, 101, 192, 0.06), transparent 55%),
-    linear-gradient(180deg, #0a0a0c 0%, #070708 55%, #050506 100%);
+    radial-gradient(ellipse 70% 50% at 50% 32%, rgba(239, 68, 68, 0.1), transparent 58%),
+    radial-gradient(ellipse 40% 30% at 78% 78%, rgba(255, 255, 255, 0.03), transparent 55%),
+    linear-gradient(180deg, #0a0a0a 0%, #050505 55%, #030303 100%);
 }
 
 .gold-rule {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.45), transparent);
-  opacity: 0.8;
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.45), transparent);
+  opacity: 0.85;
 }
 
 @keyframes fade-up {
@@ -101,10 +101,10 @@ code {
 @keyframes pulse-gold {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.28);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
   }
   50% {
-    box-shadow: 0 0 0 12px rgba(212, 175, 55, 0);
+    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
   }
 }
 
